@@ -1,0 +1,6 @@
+[workspace]
+
+members = [
+    "peglrs",
+    "glutin_backend"
+]

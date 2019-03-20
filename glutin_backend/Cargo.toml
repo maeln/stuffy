@@ -1,0 +1,9 @@
+[package]
+name = "glutin_backend"
+version = "0.1.0"
+authors = ["Maël <contact@maeln.com>"]
+edition = "2018"
+
+[dependencies]
+peglrs = { path = "../peglrs" }
+glutin = "0.20"

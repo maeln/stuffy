@@ -1,0 +1,18 @@
+[package]
+name = "peglrs"
+version = "0.1.0"
+authors = ["Maël NACCACHE <contact@maeln.com>"]
+edition = "2018"
+
+[features]
+default = ["debug"]
+debug = []
+
+[lib]
+name = "peglrs"
+crate-type = ["dylib"]
+
+[dependencies]
+gl = "0.11.0"
+cgmath = "0.17.0"
+gl_loader = "0.0.4"
