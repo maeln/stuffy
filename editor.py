@@ -18,8 +18,9 @@ else:
     prefix = 'lib'
     ext = 'so'
 
-lib = cdll.LoadLibrary(
-    './peglrs/target/debug/{}peglrs.{}'.format(prefix, ext))
+lib_path = 'target/debug/{}peglrs.{}'.format(prefix, ext)
+print(lib_path)
+lib = cdll.LoadLibrary(lib_path)
 
 load_gl_symbol = lib.load_gl_symbol
 init_gl = lib.init_gl
