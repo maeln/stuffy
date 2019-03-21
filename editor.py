@@ -18,7 +18,8 @@ else:
     prefix = 'lib'
     ext = 'so'
 
-lib_path = 'target/debug/{}peglrs.{}'.format(prefix, ext)
+lib_path = './target/debug/{}peglrs.{}'.format(prefix, ext)
+
 print(lib_path)
 lib = cdll.LoadLibrary(lib_path)
 
