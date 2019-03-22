@@ -10,6 +10,7 @@ debug = []
 
 [lib]
 name = "peglrs"
+# crate-type = ["cdylib"]
 crate-type = ["dylib"]
 
 [dependencies]

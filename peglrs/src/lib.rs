@@ -10,7 +10,7 @@ mod shaders;
 mod utils;
 
 use std::path::Path;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use camera::Camera;
 use shaders::{Program, Shader};
@@ -94,8 +94,8 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
     let pixel_shader = Shader::load_shader(Path::new("data/shaders/basic/phong/phong.fs"));
 
     let program = Program::load_program(&vec![
-        Rc::new(pixel_shader.unwrap()),
-        Rc::new(vertex_shader.unwrap()),
+        Arc::new(pixel_shader.unwrap()),
+        Arc::new(vertex_shader.unwrap()),
     ])
     .unwrap();
 

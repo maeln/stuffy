@@ -3,12 +3,97 @@ use gl;
 use std::path::Path;
 
 use std::ffi::CString;
+use std::fs;
 use std::ptr;
-use std::rc::Rc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::Duration;
 
 use cgmath::{Array, Matrix, Matrix4, Vector2, Vector3, Vector4};
 
 use super::*;
+
+#[derive(Debug)]
+pub struct ShaderManager {
+    pub programs: Arc<Vec<Arc<Program>>>,
+    pub flagged_for_reload: Arc<Mutex<Vec<Arc<Program>>>>,
+    pub watcher: thread::JoinHandle<()>,
+    watcher_running: Arc<AtomicBool>,
+}
+
+fn should_reload_shader(shader: &Arc<Shader>) -> bool {
+    let last_modifed = shader.last_modified;
+    let path = Path::new(&shader.path);
+    let stat = fs::metadata(path).unwrap();
+    let new_modified = stat.modified().unwrap();
+    new_modified > last_modifed
+}
+
+fn check_program_for_reload(program: &Arc<Program>) -> bool {
+    let shaders = &program.shaders;
+    for shader in shaders {
+        if should_reload_shader(shader) {
+            return true;
+        }
+    }
+    false
+}
+
+fn flag_program_for_reload(
+    programs: &Arc<Vec<Arc<Program>>>,
+    flagged_for_reload: &Arc<Mutex<Vec<Arc<Program>>>>,
+) {
+    for program in programs.iter() {
+        if check_program_for_reload(program) {
+            let mut flag_borrow = flagged_for_reload.lock().unwrap();
+            flag_borrow.push(program.clone());
+        }
+    }
+}
+
+impl ShaderManager {
+    fn new() -> ShaderManager {
+        let programs: Arc<Vec<Arc<Program>>> = Arc::new(Vec::new());
+        let flagged_for_reload: Arc<Mutex<Vec<Arc<Program>>>> = Arc::new(Mutex::new(Vec::new()));
+        let watcher_running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
+
+        let programs_clone = programs.clone();
+        let flag_clone = flagged_for_reload.clone();
+        let running = watcher_running.clone();
+        let watcher = thread::spawn(move || {
+            while running.load(Ordering::Relaxed) {
+                flag_program_for_reload(&programs_clone, &flag_clone);
+                thread::sleep(Duration::from_millis(1000));
+            }
+        });
+
+        ShaderManager {
+            programs,
+            flagged_for_reload,
+            watcher,
+            watcher_running,
+        }
+    }
+
+    fn kill_watcher(self) {
+        self.watcher_running.store(false, Ordering::Relaxed);
+    }
+
+    fn spawn_new_watcher(&mut self) {
+        self.watcher_running.store(true, Ordering::Relaxed);
+
+        let running = self.watcher_running.clone();
+        let programs_clone = self.programs.clone();
+        let flag_clone = self.flagged_for_reload.clone();
+        self.watcher = thread::spawn(move || {
+            while running.load(Ordering::Relaxed) {
+                flag_program_for_reload(&programs_clone, &flag_clone);
+                thread::sleep(Duration::from_millis(1000));
+            }
+        });
+    }
+}
 
 pub fn parse_uniforms(src: &str) -> Vec<String> {
     let mut uniforms: Vec<String> = Vec::new();
@@ -83,11 +168,13 @@ impl Shader {
                 return None;
             }
 
+            let stat = fs::metadata(path).unwrap();
             Some(Shader {
                 addr,
                 path: String::from(path.to_str().unwrap()),
                 uniforms: parse_uniforms(&src.to_string_lossy()),
                 shader_type: shader_type.unwrap(),
+                last_modified: stat.modified().unwrap(),
             })
         }
     }
@@ -136,7 +223,7 @@ impl Program {
         }
     }
 
-    pub fn load_program(shaders: &Vec<Rc<Shader>>) -> Option<Program> {
+    pub fn load_program(shaders: &Vec<Arc<Shader>>) -> Option<Program> {
         unsafe {
             let addr = gl::CreateProgram();
             for shader in shaders {
@@ -176,7 +263,7 @@ impl Program {
 
             for shader in shaders.into_iter() {
                 gl::DetachShader(addr, shader.addr);
-                program.shaders.push(Rc::clone(shader));
+                program.shaders.push(shader.clone());
 
                 for uniform in &shader.uniforms {
                     let uniform_cstr = CString::new(uniform.as_bytes()).unwrap();
