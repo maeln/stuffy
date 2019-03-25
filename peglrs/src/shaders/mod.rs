@@ -3,6 +3,7 @@ pub mod shader_loader;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::time::SystemTime;
 
 use gl;
@@ -27,7 +28,7 @@ pub struct Shader {
 #[derive(Debug)]
 pub struct Program {
     pub addr: u32,
-    pub shaders: Vec<Arc<Shader>>,
+    pub shaders: Vec<Arc<Mutex<Shader>>>,
     pub uniforms_location: HashMap<String, i32>,
 }
 

@@ -13,6 +13,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use camera::Camera;
+use shaders::shader_loader::ShaderManager;
 use shaders::{Program, Shader};
 
 use cgmath::prelude::*;
@@ -25,7 +26,8 @@ pub struct Scene {
     pub model_mat: Matrix4<f32>,
     pub projection_mat: Matrix4<f32>,
     pub camera: Camera,
-    pub program: Program,
+    pub shader_manager: ShaderManager,
+    pub program: u32,
     pub mesh: mesh::Mesh,
 }
 
@@ -90,14 +92,11 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
     let true_width = width * dpi_ratio;
     let true_height = height * dpi_ratio;
 
-    let vertex_shader = Shader::load_shader(Path::new("data/shaders/basic/projection.vs"));
-    let pixel_shader = Shader::load_shader(Path::new("data/shaders/basic/phong/phong.fs"));
-
-    let program = Program::load_program(&vec![
-        Arc::new(pixel_shader.unwrap()),
-        Arc::new(vertex_shader.unwrap()),
-    ])
-    .unwrap();
+    let mut shader_manager = ShaderManager::new();
+    let program = shader_manager.load_program(&vec![
+        Path::new("data/shaders/basic/projection.vs"),
+        Path::new("data/shaders/basic/phong/phong.fs"),
+    ]);
 
     let mut cube = mesh::Mesh::cube();
     cube.ready_up();
@@ -117,6 +116,7 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
             model_mat: model,
             projection_mat: projection,
             camera: cam,
+            shader_manager,
             program: program,
             mesh: cube,
         })
@@ -127,21 +127,22 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
 pub fn display_loop(time: f64) {
     unsafe {
         if let Some(scene) = &mut m_scene {
+            scene.shader_manager.handle_reload();
+
             unsafe {
                 gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
                 gl::ClearColor(0.0, 0.0, 0.0, 0.0);
             }
 
-            scene.program.bind();
-            scene.program.set_mat4("projection", &scene.projection_mat);
-            scene.program.set_mat4("view", &scene.camera.view());
-            scene.program.set_mat4("model", &scene.model_mat);
-            scene
-                .program
-                .set_vec4("eye_pos", &scene.camera.position.to_homogeneous());
-            scene
-                .program
-                .set_vec4("light_pos", &Point3::new(3.0, 1.0, 1.0).to_homogeneous());
+            if let Some(program) = scene.shader_manager.get_program(scene.program) {
+                let prog = program.lock().unwrap();
+                prog.bind();
+                prog.set_mat4("projection", &scene.projection_mat);
+                prog.set_mat4("view", &scene.camera.view());
+                prog.set_mat4("model", &scene.model_mat);
+                prog.set_vec4("eye_pos", &scene.camera.position.to_homogeneous());
+                prog.set_vec4("light_pos", &Point3::new(3.0, 1.0, 1.0).to_homogeneous());
+            }
 
             scene.mesh.draw();
         }

@@ -2,10 +2,13 @@ use crate::utils;
 use gl;
 use std::path::Path;
 
+use std::collections::HashMap;
 use std::ffi::CString;
 use std::fs;
 use std::ptr;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -15,26 +18,55 @@ use cgmath::{Array, Matrix, Matrix4, Vector2, Vector3, Vector4};
 use super::*;
 
 #[derive(Debug)]
+pub struct ProgramDB {
+    programs: HashMap<u32, Arc<Mutex<Program>>>,
+    counter: u32,
+}
+
+impl ProgramDB {
+    pub fn new() -> ProgramDB {
+        ProgramDB {
+            programs: HashMap::new(),
+            counter: 0,
+        }
+    }
+
+    pub fn add(&mut self, program: Arc<Mutex<Program>>) -> u32 {
+        let id = self.counter;
+        self.programs.insert(id, program);
+        self.counter += 1;
+        id
+    }
+
+    pub fn rm(&mut self, id: u32) -> Option<Arc<Mutex<Program>>> {
+        self.programs.remove(&id)
+    }
+}
+
+#[derive(Debug)]
 pub struct ShaderManager {
-    pub programs: Arc<Vec<Arc<Program>>>,
-    pub flagged_for_reload: Arc<Mutex<Vec<Arc<Program>>>>,
+    pub db: Arc<Mutex<ProgramDB>>,
     pub watcher: thread::JoinHandle<()>,
-    watcher_running: Arc<AtomicBool>,
+    pub sender: Sender<Arc<Mutex<Program>>>,
+    pub receiver: Receiver<Arc<Mutex<Program>>>,
 }
 
 impl ShaderManager {
-    fn should_reload_shader(shader: &Arc<Shader>) -> bool {
-        let last_modifed = shader.last_modified;
-        let path = Path::new(&shader.path);
+    fn should_reload_shader(shader: &Arc<Mutex<Shader>>) -> bool {
+        let shad = shader.lock().unwrap();
+        let last_modifed = shad.last_modified;
+        let path = Path::new(&shad.path);
         let stat = fs::metadata(path).unwrap();
         let new_modified = stat.modified().unwrap();
         new_modified > last_modifed
     }
 
-    fn check_program_for_reload(program: &Arc<Program>) -> bool {
-        let shaders = &program.shaders;
+    fn check_program_for_reload(program: &Arc<Mutex<Program>>) -> bool {
+        let prog_borrow = program.lock().unwrap();
+        let shaders = &prog_borrow.shaders;
         for shader in shaders {
             if ShaderManager::should_reload_shader(shader) {
+                // println!("Need reloading: {}", shader.path);
                 return true;
             }
         }
@@ -42,65 +74,70 @@ impl ShaderManager {
     }
 
     fn flag_program_for_reload(
-        programs: &Arc<Vec<Arc<Program>>>,
-        flagged_for_reload: &Arc<Mutex<Vec<Arc<Program>>>>,
+        program_db: &Arc<Mutex<ProgramDB>>,
+        sender: &Sender<Arc<Mutex<Program>>>,
     ) {
-        for program in programs.iter() {
+        let db_borrow = program_db.lock().unwrap();
+        let program_borrow = &db_borrow.programs;
+        for (id, program) in program_borrow.iter() {
             if ShaderManager::check_program_for_reload(program) {
-                let mut flag_borrow = flagged_for_reload.lock().unwrap();
-                flag_borrow.push(program.clone());
+                sender.send(program.clone()).unwrap();
             }
         }
     }
 
-    fn new() -> ShaderManager {
-        let programs: Arc<Vec<Arc<Program>>> = Arc::new(Vec::new());
-        let flagged_for_reload: Arc<Mutex<Vec<Arc<Program>>>> = Arc::new(Mutex::new(Vec::new()));
-        let watcher_running: Arc<AtomicBool> = Arc::new(AtomicBool::new(true));
+    pub fn new() -> ShaderManager {
+        let db: Arc<Mutex<ProgramDB>> = Arc::new(Mutex::new(ProgramDB::new()));
+        let (sender, receiver) = mpsc::channel();
 
-        let programs_clone = programs.clone();
-        let flag_clone = flagged_for_reload.clone();
-        let running = watcher_running.clone();
-        let watcher = thread::spawn(move || {
-            while running.load(Ordering::Relaxed) {
-                ShaderManager::flag_program_for_reload(&programs_clone, &flag_clone);
-                thread::sleep(Duration::from_millis(1000));
-            }
+        let db_clone = db.clone();
+        let thread_sender = mpsc::Sender::clone(&sender);
+        let watcher = thread::spawn(move || loop {
+            println!("Checking program.");
+            ShaderManager::flag_program_for_reload(&db_clone, &thread_sender);
+            thread::sleep(Duration::from_millis(1000));
         });
 
         ShaderManager {
-            programs,
-            flagged_for_reload,
+            db,
             watcher,
-            watcher_running,
+            receiver,
+            sender,
         }
     }
 
-    pub fn kill_watcher(self) {
-        self.watcher_running.store(false, Ordering::Relaxed);
-    }
-
-    pub fn spawn_new_watcher(&mut self) {
-        self.watcher_running.store(true, Ordering::Relaxed);
-
-        let running = self.watcher_running.clone();
-        let programs_clone = self.programs.clone();
-        let flag_clone = self.flagged_for_reload.clone();
-        self.watcher = thread::spawn(move || {
-            while running.load(Ordering::Relaxed) {
-                ShaderManager::flag_program_for_reload(&programs_clone, &flag_clone);
-                thread::sleep(Duration::from_millis(1000));
-            }
-        });
-    }
-
-    pub fn handle_flagged_program(&mut self) {
-        /* TODO
-        let mut flag_borrow = self.flagged_for_reload.lock().unwrap();
-        for flagged_program in flag_borrow.iter() {
-            let mutable_program  = flagged_program.get_mut().unwrap()
+    pub fn handle_reload(&mut self) {
+        for program in self.receiver.try_iter() {
+            println!("Reloading program!");
+            let mut prog_borrow = program.lock().unwrap();
+            prog_borrow.reload();
         }
-        */
+    }
+
+    pub fn load_program(&mut self, shaders_path: &Vec<&Path>) -> u32 {
+        let mut shaders: Vec<Arc<Mutex<Shader>>> = Vec::with_capacity(shaders_path.len());
+        for shader_path in shaders_path {
+            let shd = Shader::load_shader(shader_path).unwrap();
+            shaders.push(Arc::new(Mutex::new(shd)));
+        }
+
+        let program = Program::load_program(&shaders).unwrap();
+        let mut db = self.db.lock().unwrap();
+        db.add(Arc::new(Mutex::new(program)))
+    }
+
+    pub fn rm_program(&mut self, id: u32) -> Option<Arc<Mutex<Program>>> {
+        let mut db = self.db.lock().unwrap();
+        db.rm(id)
+    }
+
+    pub fn get_program(&self, id: u32) -> Option<Arc<Mutex<Program>>> {
+        let mut db = self.db.lock().unwrap();
+        let res = db.programs.get(&id);
+        if let Some(prog) = res {
+            return Some(prog.clone());
+        }
+        None
     }
 }
 
@@ -264,11 +301,12 @@ impl Program {
         }
     }
 
-    pub fn link_program(shaders: &Vec<Arc<Shader>>) -> Option<u32> {
+    pub fn link_program(shaders: &Vec<Arc<Mutex<Shader>>>) -> Option<u32> {
         unsafe {
             let addr = gl::CreateProgram();
             for shader in shaders {
-                gl::AttachShader(addr, shader.addr);
+                let shad = shader.lock().unwrap();
+                gl::AttachShader(addr, shad.addr);
             }
             gl::LinkProgram(addr);
 
@@ -293,8 +331,9 @@ impl Program {
             }
 
             for shader in shaders.into_iter() {
-                gl::DetachShader(addr, shader.addr);
-                for uniform in &shader.uniforms {
+                let shad = shader.lock().unwrap();
+                gl::DetachShader(addr, shad.addr);
+                for uniform in &shad.uniforms {
                     let uniform_cstr = CString::new(uniform.as_bytes()).unwrap();
                     let location = gl::GetUniformLocation(addr, uniform_cstr.as_ptr());
                 }
@@ -304,7 +343,7 @@ impl Program {
         }
     }
 
-    pub fn load_program(shaders: &Vec<Arc<Shader>>) -> Option<Program> {
+    pub fn load_program(shaders: &Vec<Arc<Mutex<Shader>>>) -> Option<Program> {
         let program_addr = Program::link_program(shaders);
         if let Some(addr) = program_addr {
             let mut program = Program {
@@ -315,7 +354,8 @@ impl Program {
 
             for shader in shaders.into_iter() {
                 program.shaders.push(shader.clone());
-                for uniform in &shader.uniforms {
+                let shad = shader.lock().unwrap();
+                for uniform in &shad.uniforms {
                     let uniform_cstr = CString::new(uniform.as_bytes()).unwrap();
                     unsafe {
                         let location = gl::GetUniformLocation(addr, uniform_cstr.as_ptr());
@@ -331,6 +371,11 @@ impl Program {
     }
 
     pub fn reload(&mut self) {
+        for shader in &self.shaders {
+            let mut shad = shader.lock().unwrap();
+            shad.reload();
+        }
+
         let program_addr = Program::link_program(&self.shaders);
         if let Some(addr) = program_addr {
             unsafe {
@@ -340,7 +385,8 @@ impl Program {
 
             self.uniforms_location.clear();
             for shader in self.shaders.iter() {
-                for uniform in &shader.uniforms {
+                let shad = shader.lock().unwrap();
+                for uniform in &shad.uniforms {
                     let uniform_cstr = CString::new(uniform.as_bytes()).unwrap();
                     unsafe {
                         let location = gl::GetUniformLocation(addr, uniform_cstr.as_ptr());
