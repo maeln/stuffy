@@ -60,8 +60,8 @@ impl Camera {
         }
     }
 
-    pub fn move_target(&mut self, dx: f32, dy: f32, dt: f32) {
-        let vel = 0.01;
+    pub fn move_target(&mut self, dx: f32, dy: f32, speed: f32) {
+        let vel = speed;
         self.angle_h = self.angle_h + dx * vel;
         self.angle_v = self.angle_v + dy * vel;
 

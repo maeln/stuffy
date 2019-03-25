@@ -42,5 +42,5 @@ void main()
 		vec3(0.1), vec3(0.5), vec3(0.8));
 
 	color = vec4(phong(projected_position.xyz, eye_pos.xyz, transposed_normal.xyz, l1, 1.0), 1.0);
-	color = vec4(0.0, 1.0, 0.0, 1.0);
+	// color = vec4(0.0, 1.0, 0.0, 1.0);
 }

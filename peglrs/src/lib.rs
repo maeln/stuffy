@@ -124,15 +124,29 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
 }
 
 #[no_mangle]
+pub fn handle_mouse(dx: f32, dy: f32, speed: f32) {
+    unsafe {
+        if let Some(scene) = &mut m_scene {
+            scene.camera.move_target(dx, dy, speed);
+        }
+    }
+}
+
+#[no_mangle]
+pub fn quit() {
+    unsafe {
+        m_scene = None;
+    }
+}
+
+#[no_mangle]
 pub fn display_loop(time: f64) {
     unsafe {
         if let Some(scene) = &mut m_scene {
             scene.shader_manager.handle_reload();
 
-            unsafe {
-                gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
-                gl::ClearColor(0.0, 0.0, 0.0, 0.0);
-            }
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
 
             if let Some(program) = scene.shader_manager.get_program(scene.program) {
                 let prog = program.lock().unwrap();
