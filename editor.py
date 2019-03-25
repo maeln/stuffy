@@ -1,12 +1,12 @@
 import sys
 import random
 
-from ctypes import cdll, c_double
+from ctypes import cdll, c_double, c_float
 from sys import platform
 
 from PySide2.QtGui import QWindow, QOpenGLContext, QSurface, QSurfaceFormat, QExposeEvent
 from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QSize, QEvent
+from PySide2.QtCore import QSize, QEvent, Signal, Slot
 
 if platform == 'darwin':
     prefix = 'lib'
@@ -29,11 +29,14 @@ init_scene = lib.init_scene
 display_loop = lib.display_loop
 print_gl_info = lib.print_gl_info
 resize_window = lib.resize_window
+handle_mouse = lib.handle_mouse
 
 
 class GLWin(QWindow):
-    def __init__(self):
-        QWindow.__init__(self)
+    requestRender = Signal()
+
+    def __init__(self, parent=None):
+        QWindow.__init__(self, parent)
         self.setSurfaceType(QSurface.OpenGLSurface)
         self.gl_format = QSurfaceFormat()
         self.gl_format.setRenderableType(QSurfaceFormat.OpenGL)
@@ -42,6 +45,29 @@ class GLWin(QWindow):
         self.setFormat(self.gl_format)
         if self.supportsOpenGL():
             print("OpenGL supported !")
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.mouse_init = False
+        self.animating = False
+        self.requestRender.connect(self.requestUpdate)
+
+    def start(self):
+        self.animating = True
+        self.renderLater()
+
+    def render(self):
+        display_loop(c_double(0.0))
+
+    def renderLater(self):
+        self.requestRender.emit()
+
+    def renderNow(self):
+        if not self.isExposed():
+            return
+        self.render()
+        self.gl_context.swapBuffers(self)
+        if self.animating:
+            self.renderLater()
 
     def init_context(self):
         self.gl_context = QOpenGLContext(self)
@@ -61,11 +87,6 @@ class GLWin(QWindow):
         print_gl_info()
         init_scene(width, height, dpi_ratio)
 
-    def render_scene(self):
-        if self.isExposed():
-            display_loop(c_double(0.0))
-            self.gl_context.swapBuffers(self)
-
     def resize(self):
         if self.isExposed():
             width = c_double(self.size().width())
@@ -74,18 +95,31 @@ class GLWin(QWindow):
             resize_window(width, height, dpi_ratio)
 
     def event(self, ev):
-        if ev.type == QEvent.UpdateRequest:
-            self.render_scene()
+        if ev.type() == QEvent.UpdateRequest:
+            self.renderNow()
             return True
         else:
             return super().event(ev)
 
     def exposeEvent(self, ev):
-        self.render_scene()
+        self.renderLater()
 
     def resizeEvent(self, ev):
         self.resize()
-        self.render_scene()
+        self.renderLater()
+
+    def mouseMoveEvent(self, ev):
+        pos = ev.localPos()
+        if not self.mouse_init:
+            self.mouse_x = pos.x()
+            self.mouse_y = pos.y()
+            self.mouse_init = True
+        else:
+            dx = self.mouse_x - pos.x()
+            dy = self.mouse_y - pos.y()
+            self.mouse_x = pos.x()
+            self.mouse_y = pos.y()
+            handle_mouse(c_float(dx), c_float(dy), c_float(0.001))
 
 
 if __name__ == "__main__":
@@ -96,5 +130,6 @@ if __name__ == "__main__":
     win.show()
     win.init_context()
     win.init_scene()
+    win.start()
 
     sys.exit(app.exec_())

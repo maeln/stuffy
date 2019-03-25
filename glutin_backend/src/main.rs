@@ -40,6 +40,16 @@ fn main() {
                     peglrs::quit();
                     running = false
                 }
+                glutin::WindowEvent::Resized(size) => {
+                    let dpi = window_context.get_hidpi_factor();
+                    peglrs::resize_window(size.width, size.height, dpi);
+                    window_context.resize(size.to_physical(dpi));
+                }
+                glutin::WindowEvent::HiDpiFactorChanged(dpi) => {
+                    let size = window_context.get_inner_size().unwrap();
+                    peglrs::resize_window(size.width, size.height, dpi);
+                    window_context.resize(size.to_physical(dpi));
+                }
                 glutin::WindowEvent::CursorMoved { position, .. } => {
                     if mouse_pressed {
                         if !mouse_init {
