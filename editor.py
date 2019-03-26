@@ -6,7 +6,7 @@ from sys import platform
 
 from PySide2.QtGui import QWindow, QOpenGLContext, QSurface, QSurfaceFormat, QExposeEvent
 from PySide2.QtWidgets import QApplication
-from PySide2.QtCore import QSize, QEvent, Signal, Slot
+from PySide2.QtCore import QSize, QEvent, Signal, Slot, Qt
 
 if platform == 'darwin':
     prefix = 'lib'
@@ -50,6 +50,31 @@ class GLWin(QWindow):
         self.mouse_init = False
         self.animating = False
         self.requestRender.connect(self.requestUpdate)
+        # self.setMouseGrabEnabled(True)
+        self.mouse_pressed = False
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self.mouse_pressed = True
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self.mouse_pressed = False
+            self.mouse_init = False
+
+    def mouseMoveEvent(self, ev):
+        pos = ev.localPos()
+        if self.mouse_pressed:
+            if not self.mouse_init:
+                self.mouse_x = pos.x()
+                self.mouse_y = pos.y()
+                self.mouse_init = True
+            else:
+                dx = self.mouse_x - pos.x()
+                dy = self.mouse_y - pos.y()
+                self.mouse_x = pos.x()
+                self.mouse_y = pos.y()
+                handle_mouse(c_float(dx), c_float(dy), c_float(0.001))
 
     def start(self):
         self.animating = True
@@ -107,19 +132,6 @@ class GLWin(QWindow):
     def resizeEvent(self, ev):
         self.resize()
         self.renderLater()
-
-    def mouseMoveEvent(self, ev):
-        pos = ev.localPos()
-        if not self.mouse_init:
-            self.mouse_x = pos.x()
-            self.mouse_y = pos.y()
-            self.mouse_init = True
-        else:
-            dx = self.mouse_x - pos.x()
-            dy = self.mouse_y - pos.y()
-            self.mouse_x = pos.x()
-            self.mouse_y = pos.y()
-            handle_mouse(c_float(dx), c_float(dy), c_float(0.001))
 
 
 if __name__ == "__main__":
