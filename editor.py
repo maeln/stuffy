@@ -1,11 +1,11 @@
 import sys
 import random
 
-from ctypes import cdll, c_double, c_float
+from ctypes import cdll, c_double, c_float, c_uint
 from sys import platform
 
 from PySide2.QtGui import QWindow, QOpenGLContext, QSurface, QSurfaceFormat, QExposeEvent
-from PySide2.QtWidgets import QApplication
+from PySide2.QtWidgets import QApplication, QOpenGLWidget
 from PySide2.QtCore import QSize, QEvent, Signal, Slot, Qt
 
 if platform == 'darwin':
@@ -30,6 +30,35 @@ display_loop = lib.display_loop
 print_gl_info = lib.print_gl_info
 resize_window = lib.resize_window
 handle_mouse = lib.handle_mouse
+
+
+class GLWidget(QOpenGLWidget):
+    def __init__(self, parent=None):
+        QOpenGLWidget.__init__(self, parent)
+        self.gl_format = QSurfaceFormat()
+        self.gl_format.setRenderableType(QSurfaceFormat.OpenGL)
+        self.gl_format.setProfile(QSurfaceFormat.CoreProfile)
+        self.gl_format.setVersion(4, 1)
+        self.setFormat(self.gl_format)
+
+    def paintGL(self):
+        print("hello")
+        display_loop(c_double(0.0), c_uint(self.defaultFramebufferObject()))
+
+    def resizeGL(self, width, height):
+        width = c_double(self.size().width())
+        height = c_double(self.size().height())
+        dpi_ratio = c_double(self.devicePixelRatio())
+        resize_window(width, height, dpi_ratio)
+
+    def initializeGL(self):
+        width = c_double(self.size().width())
+        height = c_double(self.size().height())
+        dpi_ratio = c_double(self.devicePixelRatio())
+        load_gl_symbol()
+        init_gl(width, height, dpi_ratio)
+        print_gl_info()
+        init_scene(width, height, dpi_ratio)
 
 
 class GLWin(QWindow):
@@ -137,11 +166,15 @@ class GLWin(QWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 
-    win = GLWin()
+    #win = GLWin()
+    #win.setBaseSize(QSize(640, 480))
+    # win.show()
+    # win.init_context()
+    # win.init_scene()
+    # win.start()
+
+    win = GLWidget()
     win.setBaseSize(QSize(640, 480))
     win.show()
-    win.init_context()
-    win.init_scene()
-    win.start()
 
     sys.exit(app.exec_())

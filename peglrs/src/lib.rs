@@ -140,9 +140,11 @@ pub fn quit() {
 }
 
 #[no_mangle]
-pub fn display_loop(time: f64) {
+pub fn display_loop(time: f64, fbo: u32) {
     unsafe {
         if let Some(scene) = &mut m_scene {
+            gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
+
             scene.shader_manager.handle_reload();
 
             gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);

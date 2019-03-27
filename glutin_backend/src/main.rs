@@ -82,7 +82,7 @@ fn main() {
         });
 
         let elapsed = time.elapsed();
-        peglrs::display_loop(elapsed.as_millis() as f64);
+        peglrs::display_loop(elapsed.as_millis() as f64, 0);
         window_context.swap_buffers().unwrap();
     }
 }
