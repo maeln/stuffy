@@ -56,7 +56,10 @@ fn main() {
                             mouse_prev = (position.x, position.y);
                             mouse_init = true;
                         } else {
-                            mouse_next = (position.x, position.y);
+                            let mouse_delta =
+                                (mouse_prev.0 - position.x, mouse_prev.1 - position.y);
+                            peglrs::handle_mouse(mouse_delta.0 as f32, mouse_delta.1 as f32, 0.001);
+                            mouse_prev = (position.x, position.y);
                         }
                     }
                 }
@@ -70,18 +73,13 @@ fn main() {
                         && button == glutin::MouseButton::Left
                     {
                         mouse_pressed = false;
+                        mouse_init = false;
                     }
                 }
                 _ => (),
             },
             _ => (),
         });
-
-        if mouse_pressed {
-            let mouse_delta = (mouse_prev.0 - mouse_next.0, mouse_prev.1 - mouse_next.1);
-            peglrs::handle_mouse(mouse_delta.0 as f32, mouse_delta.1 as f32, 0.001);
-            mouse_prev = mouse_next;
-        }
 
         let elapsed = time.elapsed();
         peglrs::display_loop(elapsed.as_millis() as f64);
