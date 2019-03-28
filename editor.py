@@ -40,9 +40,12 @@ class GLWidget(QOpenGLWidget):
         self.gl_format.setProfile(QSurfaceFormat.CoreProfile)
         self.gl_format.setVersion(4, 1)
         self.setFormat(self.gl_format)
+        self.mouse_x = 0
+        self.mouse_y = 0
+        self.mouse_init = False
+        self.mouse_pressed = False
 
     def paintGL(self):
-        print("hello")
         display_loop(c_double(0.0), c_uint(self.defaultFramebufferObject()))
 
     def resizeGL(self, width, height):
@@ -59,6 +62,30 @@ class GLWidget(QOpenGLWidget):
         init_gl(width, height, dpi_ratio)
         print_gl_info()
         init_scene(width, height, dpi_ratio)
+
+    def mousePressEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self.mouse_pressed = True
+
+    def mouseReleaseEvent(self, ev):
+        if ev.button() == Qt.LeftButton:
+            self.mouse_pressed = False
+            self.mouse_init = False
+
+    def mouseMoveEvent(self, ev):
+        pos = ev.localPos()
+        if self.mouse_pressed:
+            if not self.mouse_init:
+                self.mouse_x = pos.x()
+                self.mouse_y = pos.y()
+                self.mouse_init = True
+            else:
+                dx = self.mouse_x - pos.x()
+                dy = self.mouse_y - pos.y()
+                self.mouse_x = pos.x()
+                self.mouse_y = pos.y()
+                handle_mouse(c_float(dx), c_float(dy), c_float(0.001))
+                self.update()
 
 
 class GLWin(QWindow):
