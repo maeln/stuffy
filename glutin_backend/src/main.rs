@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 fn main() {
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new()
-        .with_title("Hello world!")
+        .with_title("Stuffy (ESC)")
         .with_dimensions(glutin::dpi::LogicalSize::new(1024.0, 768.0))
         .with_decorations(true)
         .with_transparency(false);
@@ -40,6 +40,14 @@ fn main() {
                     peglrs::quit();
                     running = false
                 }
+                glutin::WindowEvent::KeyboardInput { input, .. } => {
+                        if let Some(vkey) = input.virtual_keycode {
+                            match vkey {
+                                glutin::VirtualKeyCode::Escape => running = false,
+                                _ => {}
+                            }
+                        }
+                    }
                 glutin::WindowEvent::Resized(size) => {
                     let dpi = window_context.get_hidpi_factor();
                     peglrs::resize_window(size.width, size.height, dpi);

@@ -17,18 +17,16 @@ use shaders::shader_loader::ShaderManager;
 use shaders::{Program, Shader};
 
 use cgmath::prelude::*;
-use cgmath::{perspective, Deg, Matrix4, Point3, Vector3};
+use cgmath::{perspective, Deg, Matrix4, Point3, Vector3, Vector2};
 
 use std::ffi::CStr;
 
 #[derive(Debug)]
 pub struct Scene {
-    pub model_mat: Matrix4<f32>,
-    pub projection_mat: Matrix4<f32>,
-    pub camera: Camera,
     pub shader_manager: ShaderManager,
     pub program: u32,
     pub mesh: mesh::Mesh,
+    pub size: Vector2<f32>,
 }
 
 static mut m_scene: Option<Scene> = None;
@@ -42,8 +40,10 @@ pub fn resize_window(width: f64, height: f64, dpi_ratio: f64) {
         gl::Viewport(0, 0, real_width as i32, real_height as i32);
 
         if let Some(scene) = &mut m_scene {
-            scene.projection_mat =
-                perspective(Deg(75.0), (real_width / real_height) as f32, 0.1, 10.0);
+            scene.size = Vector2 {
+                x: real_width as f32,
+                y: real_height as f32
+            }
         }
     }
 }
@@ -94,42 +94,28 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
 
     let mut shader_manager = ShaderManager::new();
     let program = shader_manager.load_program(&vec![
-        Path::new("data/shaders/basic/projection.vs"),
-        Path::new("data/shaders/basic/phong/phong.fs"),
+        Path::new("data/shaders/post/post.vs"),
+        Path::new("data/shaders/post/post.fs"),
     ]);
 
-    let mut cube = mesh::Mesh::cube();
-    cube.ready_up();
-
-    let mut model = Matrix4::<f32>::identity();
-    let mut projection: Matrix4<f32> =
-        perspective(Deg(75.0), (true_width / true_height) as f32, 0.1, 10.0);
-
-    let mut cam = Camera::new(
-        Point3::new(0.0, 0.0, -2.0),
-        Vector3::new(0.0, 0.0, 1.0),
-        Vector3::new(0.0, 1.0, 0.0),
-    );
+    let mut fs_plane = mesh::Mesh::fs_quad();
+    fs_plane.ready_up();
 
     unsafe {
         m_scene = Some(Scene {
-            model_mat: model,
-            projection_mat: projection,
-            camera: cam,
             shader_manager,
             program: program,
-            mesh: cube,
+            mesh: fs_plane,
+            size: Vector2 {
+                x: true_width as f32,
+                y: true_height as f32
+            }
         })
     }
 }
 
 #[no_mangle]
 pub fn handle_mouse(dx: f32, dy: f32, speed: f32) {
-    unsafe {
-        if let Some(scene) = &mut m_scene {
-            scene.camera.move_target(dx, dy, speed);
-        }
-    }
 }
 
 #[no_mangle]
@@ -152,12 +138,9 @@ pub fn display_loop(time: f64, fbo: u32) {
 
             if let Some(program) = scene.shader_manager.get_program(scene.program) {
                 let prog = program.lock().unwrap();
+                prog.set_float("time", time as f32);
+                prog.set_vec2("resolution", &scene.size);
                 prog.bind();
-                prog.set_mat4("projection", &scene.projection_mat);
-                prog.set_mat4("view", &scene.camera.view());
-                prog.set_mat4("model", &scene.model_mat);
-                prog.set_vec4("eye_pos", &scene.camera.position.to_homogeneous());
-                prog.set_vec4("light_pos", &Point3::new(3.0, 1.0, 1.0).to_homogeneous());
             }
 
             scene.mesh.draw();

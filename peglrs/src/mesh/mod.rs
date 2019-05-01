@@ -226,7 +226,7 @@ impl Mesh {
                 gl::DrawElements(self.draw_type, fnb, gl::UNSIGNED_INT, std::ptr::null_mut());
             }
         } else {
-            unsafe { gl::DrawArrays(self.draw_type, 0, (self.vertices.len() / 3) as i32) }
+            unsafe { gl::DrawArrays(self.draw_type, 0, (self.vertices.len()+1 / 3) as i32) }
         }
 
         self.free_vao();
