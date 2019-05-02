@@ -9,8 +9,11 @@ uniform vec2 resolution;
 #define PI 3.141592
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
-#define T_MIN 0.0
+#define T_MIN 1e-5
 #define T_MAX 100.0
+#define MAX_BOUNCE 4
+
+#define SAMPLING 4
 
 struct ray {
 	vec3 origin;
@@ -48,6 +51,16 @@ sphere new_sphere(vec3 c, float r) {
 	s.radius = r;
 	s.center = c;
 	return s;
+}
+
+float random (in vec2 st) {
+    return fract(sin(dot(st.xy,
+                         vec2(12.9898,78.233)))*
+        43758.5453123);
+}
+
+float rand(in float seed) {
+	return fract(tan(seed)*1234.0);
 }
 
 vec3 point_at(ray r, float t) {
@@ -103,15 +116,34 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 	return got_hit;
 }
 
-vec3 color(ray r) {
+vec3 random_in_unit_sphere(in float seed) {
+	vec3 dir = vec3(rand(seed), rand(seed*2.0), rand(seed*3.0));
+	float len = rand(seed*seed);
+	return dir*len;
+}
+
+vec3 sky(in ray r) {
+	vec3 unit_dir = normalize(r.direction);
+	float t = 0.5 * (unit_dir.y + 1.0);
+	return (1.0-t) * vec3(1.0) + t * vec3(0.5, 0.7, 1.0);
+}
+
+vec3 color(in ray r) {
+	vec3 c = vec3(1.0);
 	hit h;
-	if(hit_scene(r, T_MIN, T_MAX, h)) {
-		return 0.5 * vec3(h.normal.x+1.0, h.normal.y+1.0, h.normal.z+1.0);
-	} else {
-		vec3 unit_dir = normalize(r.direction);
-		float t = 0.5 * (unit_dir.y + 1.0);
-		return (1.0-t) * vec3(1.0) + t * vec3(0.5, 0.7, 1.0);
-	}	
+
+	for(int i=0; i<MAX_BOUNCE; ++i) {
+		if(hit_scene(r, T_MIN, T_MAX, h)) {
+			c *= 0.5;
+			r.origin = h.p;
+			r.direction = h.p + h.normal + random_in_unit_sphere(h.t);
+		} else {
+			c *= sky(r);
+			return c;
+		}
+	}
+
+	return c;
 }
 
 vec3 lower_left = vec3(-2.0, -1.0, -1.0);
@@ -122,8 +154,15 @@ vec3 origin = vec3(0.0, 0.0, 0.0);
 void main()
 {
 	vec2 uv = gl_FragCoord.xy / resolution.xy;
-	ray r = new_ray(origin, lower_left + uv.x * horizontal + uv.y * vertical);
-	vec3 col = color(r);
 
-	FragColor = vec4(col, 1.0);
+	vec3 col = vec3(0.0);
+	for(int i=0; i<SAMPLING; ++i) {
+		vec2 jitter = vec2(random(uv+i), random(uv-i)) / resolution.xy;
+		ray r = new_ray(origin, lower_left + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical);
+		col += color(r);
+	}
+
+	col /= float(SAMPLING);
+
+	FragColor = vec4(sqrt(col), 1.0);
 }
