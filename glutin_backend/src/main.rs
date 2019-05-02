@@ -8,7 +8,7 @@ fn main() {
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_dimensions(glutin::dpi::LogicalSize::new(1024.0, 768.0))
+        .with_dimensions(glutin::dpi::LogicalSize::new(200.0, 100.0))
         .with_decorations(true)
         .with_transparency(false);
     let window_context = glutin::ContextBuilder::new()
@@ -90,7 +90,7 @@ fn main() {
         });
 
         let elapsed = time.elapsed();
-        peglrs::display_loop(elapsed.as_millis() as f64, 0);
+        peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
         window_context.swap_buffers().unwrap();
     }
 }

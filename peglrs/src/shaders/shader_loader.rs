@@ -184,7 +184,6 @@ impl Shader {
                 let mut log: Vec<u8> = Vec::with_capacity(log_len as usize);
                 gl::GetShaderInfoLog(addr, log_len, ptr::null_mut(), log.as_mut_ptr() as *mut i8);
                 log.set_len(log_len as usize);
-                println!("log len: {:?}", log);
                 eprintln!(
                     "[ERR] Couldn't compile shader {}, log:\n{}",
                     path.display(),
