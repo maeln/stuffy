@@ -13,9 +13,9 @@ use std::path::Path;
 use std::sync::Arc;
 
 use camera::Camera;
+use frame::fbo::Framebuffer;
 use shaders::shader_loader::ShaderManager;
 use shaders::{Program, Shader};
-use frame::fbo::Framebuffer;
 
 use cgmath::prelude::*;
 use cgmath::{perspective, Deg, Matrix4, Point3, Vector2, Vector3};
@@ -185,7 +185,7 @@ pub fn display_loop(time: f64, fbo: u32) {
                 prog.set_i32("scenebuffer", 0);
                 prog.set_i32("backbuffer", 1);
             }
-            
+
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, scene.scenebuffer.color_attachment.unwrap());
             gl::ActiveTexture(gl::TEXTURE0 + 1);
@@ -205,7 +205,7 @@ pub fn display_loop(time: f64, fbo: u32) {
             gl::ActiveTexture(gl::TEXTURE0);
             gl::BindTexture(gl::TEXTURE_2D, scene.scenebuffer.color_attachment.unwrap());
             scene.mesh.draw();
-            
+
             // Show scene
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
 
