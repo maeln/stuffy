@@ -62,6 +62,7 @@ struct ray {
 
 struct material {
 	vec3 albedo;
+	float fuzz;
 	int type;
 };
 
@@ -94,10 +95,11 @@ hit new_hit(float ht, vec3 point, vec3 norm, material m) {
 	return h;
 }
 
-material new_material(vec3 a, int t) {
+material new_material(vec3 a, int t, float f) {
 	material m;
 	m.albedo = a;
 	m.type = t;
+	m.fuzz = f;
 	return m;
 }
 
@@ -142,9 +144,10 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 }
 
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
-	sphere s1 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN));
-	sphere s2 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL));
-	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.7, 0.8, 0.9), METAL));
+	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL, 0.02));
+	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN, 0.0));
+	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.7, 0.8, 0.9), METAL, 0.0));
+	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.15));
 	
 	hit tmp_hit;
 	float closest = t_max;
@@ -168,6 +171,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 		h = tmp_hit;
 	}
 
+	if(hit_sphere(s4, r, t_min, closest, tmp_hit)) {
+		closest = tmp_hit.t;
+		got_hit = true;
+		h = tmp_hit;
+	}
+
 	return got_hit;
 }
 
@@ -186,7 +195,7 @@ bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation, out ray scatte
 
 bool metal_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
 	vec3 reflected = reflect(normalize(r.direction), h.normal);
-	scattered = new_ray(h.p, reflected);
+	scattered = new_ray(h.p, reflected + h.m.fuzz * random_in_unit_sphere(g_seed));
 	attenuation = h.m.albedo;
 	return (dot(scattered.direction, h.normal) > 0.0);
 }
