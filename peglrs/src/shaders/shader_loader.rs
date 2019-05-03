@@ -93,7 +93,6 @@ impl ShaderManager {
         let db_clone = db.clone();
         let thread_sender = mpsc::Sender::clone(&sender);
         let watcher = thread::spawn(move || loop {
-            println!("Checking program.");
             ShaderManager::flag_program_for_reload(&db_clone, &thread_sender);
             thread::sleep(Duration::from_millis(1000));
         });

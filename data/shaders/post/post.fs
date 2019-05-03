@@ -15,6 +15,9 @@ uniform sampler2D backbuffer;
 #define T_MAX 100.0
 #define MAX_BOUNCE 5
 
+#define LAMBERTIAN 0
+#define METAL 1
+
 #define SAMPLING 4
 
 uint base_hash(uvec2 p) {
@@ -57,15 +60,22 @@ struct ray {
 	vec3 direction;
 };
 
+struct material {
+	vec3 albedo;
+	int type;
+};
+
 struct hit {
 	float t;
 	vec3 p;
 	vec3 normal;
+	material m;
 };
 
 struct sphere {
 	float radius;
 	vec3 center;
+	material m;
 };
 
 ray new_ray(vec3 o, vec3 d) {
@@ -75,18 +85,27 @@ ray new_ray(vec3 o, vec3 d) {
 	return r;
 }
 
-hit new_hit(float ht, vec3 point, vec3 norm) {
+hit new_hit(float ht, vec3 point, vec3 norm, material m) {
 	hit h;
 	h.t = ht;
 	h.p = point;
 	h.normal = norm;
+	h.m = m;
 	return h;
 }
 
-sphere new_sphere(vec3 c, float r) {
+material new_material(vec3 a, int t) {
+	material m;
+	m.albedo = a;
+	m.type = t;
+	return m;
+}
+
+sphere new_sphere(vec3 c, float r, material m) {
 	sphere s;
 	s.radius = r;
 	s.center = c;
+	s.m = m;
 	return s;
 }
 
@@ -106,6 +125,7 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 			h.t = dist;
 			h.p = point_at(r, dist);
 			h.normal = (h.p - s.center) / s.radius;
+			h.m = s.m;
 			return true;
 		}
 
@@ -114,6 +134,7 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 			h.t = dist;
 			h.p = point_at(r, dist);
 			h.normal = (h.p - s.center) / s.radius;
+			h.m = s.m;
 			return true;
 		}
 	}
@@ -121,8 +142,9 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 }
 
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
-	sphere s1 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5);
-	sphere s2 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0);
+	sphere s1 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN));
+	sphere s2 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL));
+	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.7, 0.8, 0.9), METAL));
 	
 	hit tmp_hit;
 	float closest = t_max;
@@ -140,6 +162,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 		h = tmp_hit;
 	}
 
+	if(hit_sphere(s3, r, t_min, closest, tmp_hit)) {
+		closest = tmp_hit.t;
+		got_hit = true;
+		h = tmp_hit;
+	}
+
 	return got_hit;
 }
 
@@ -149,15 +177,44 @@ vec3 sky(in ray r) {
 	return (1.0-t) * vec3(1.0) + t * vec3(0.5, 0.7, 1.0);
 }
 
+bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation, out ray scattered) {
+	vec3 target = h.normal + random_in_unit_sphere(g_seed);
+	scattered = new_ray(h.p, target);
+	attenuation = h.m.albedo;
+	return true;
+}
+
+bool metal_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
+	vec3 reflected = reflect(normalize(r.direction), h.normal);
+	scattered = new_ray(h.p, reflected);
+	attenuation = h.m.albedo;
+	return (dot(scattered.direction, h.normal) > 0.0);
+}
+
+bool material_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
+	if(h.m.type == LAMBERTIAN) {
+		return lambertian_scatter(r, h, attenuation, scattered);
+	} else if(h.m.type == METAL) {
+		return metal_scatter(r, h, attenuation, scattered);
+	} else {
+		return false;
+	}
+}
+
 vec3 color(in ray r) {
 	vec3 c = vec3(1.0);
 	hit h;
 
 	for(int i=0; i<MAX_BOUNCE; ++i) {
 		if(hit_scene(r, T_MIN, T_MAX, h)) {
-			c *= 0.5;
-			r.origin = h.p;
-			r.direction = h.normal + random_in_unit_sphere(g_seed);
+			ray scattered;
+			vec3 attenuation;
+			if(material_scatter(r, h, attenuation, scattered)) {
+				c *= attenuation;
+				r = scattered;
+			} else {
+				return vec3(0.0);
+			}
 		} else {
 			c *= sky(r);
 			return c;

@@ -153,6 +153,24 @@ pub fn quit() {
 }
 
 #[no_mangle]
+pub fn reset(fbo: u32) {
+    unsafe {
+        if let Some(scene) = &mut m_scene {
+            scene.frame_nb = 0;
+            gl::BindFramebuffer(gl::FRAMEBUFFER, scene.backbuffer.addr);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, scene.scenebuffer.addr);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+            gl::BindFramebuffer(gl::FRAMEBUFFER, 0);
+            gl::Clear(gl::COLOR_BUFFER_BIT | gl::DEPTH_BUFFER_BIT | gl::STENCIL_BUFFER_BIT);
+            gl::ClearColor(0.0, 0.0, 0.0, 0.0);
+        }
+    }
+}
+
+#[no_mangle]
 pub fn display_loop(time: f64, fbo: u32) {
     unsafe {
         if let Some(scene) = &mut m_scene {

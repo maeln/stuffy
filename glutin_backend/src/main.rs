@@ -52,6 +52,11 @@ fn main() {
                                 peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
                                 window_context.swap_buffers().unwrap();
                             }
+                            glutin::VirtualKeyCode::P => {
+                                peglrs::reset(0);
+                                time = Instant::now();
+                                window_context.swap_buffers().unwrap();
+                            }
                             _ => {}
                         }
                     }
