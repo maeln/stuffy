@@ -270,6 +270,12 @@ impl Program {
         }
     }
 
+    pub fn set_i32(&self, name: &str, value: i32) {
+        unsafe {
+            gl::Uniform1i(self.uniforms_location[name], value);
+        }
+    }
+
     pub fn set_float(&self, name: &str, value: f32) {
         unsafe {
             gl::Uniform1f(self.uniforms_location[name], value);

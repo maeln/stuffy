@@ -5,15 +5,52 @@ in vec2 TexCoords;
 
 uniform float time;
 uniform vec2 resolution;
+uniform float frame_nb;
+uniform sampler2D backbuffer;
 
 #define PI 3.141592
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
-#define T_MIN 1e-5
+#define T_MIN 1e-4
 #define T_MAX 100.0
-#define MAX_BOUNCE 4
+#define MAX_BOUNCE 5
 
 #define SAMPLING 4
+
+uint base_hash(uvec2 p) {
+    p = 1103515245U*((p >> 1U)^(p.yx));
+    uint h32 = 1103515245U*((p.x)^(p.y>>3U));
+    return h32^(h32 >> 16);
+}
+
+float g_seed = 0.;
+
+vec2 hash2(inout float seed) {
+    uint n = base_hash(floatBitsToUint(vec2(seed+=.1,seed+=.1)));
+    uvec2 rz = uvec2(n, n*48271U);
+    return vec2(rz.xy & uvec2(0x7fffffffU))/float(0x7fffffff);
+}
+
+vec3 hash3(inout float seed) {
+    uint n = base_hash(floatBitsToUint(vec2(seed+=.1,seed+=.1)));
+    uvec3 rz = uvec3(n, n*16807U, n*48271U);
+    return vec3(rz & uvec3(0x7fffffffU))/float(0x7fffffff);
+}
+
+/*
+vec3 random_in_unit_sphere(in float seed) {
+	vec3 dir = vec3(rand(seed), rand(seed*2.0), rand(seed*3.0));
+	float len = rand(seed*seed);
+	return dir*len;
+}
+*/
+vec3 random_in_unit_sphere(inout float seed) {
+    vec3 h = hash3(seed) * vec3(2.,6.28318530718,1.)-vec3(1,0,0);
+    float phi = h.y;
+    float r = pow(h.z, 1./3.);
+	return r * vec3(sqrt(1.-h.x*h.x)*vec2(sin(phi),cos(phi)),h.x);
+}
+
 
 struct ray {
 	vec3 origin;
@@ -51,16 +88,6 @@ sphere new_sphere(vec3 c, float r) {
 	s.radius = r;
 	s.center = c;
 	return s;
-}
-
-float random (in vec2 st) {
-    return fract(sin(dot(st.xy,
-                         vec2(12.9898,78.233)))*
-        43758.5453123);
-}
-
-float rand(in float seed) {
-	return fract(tan(seed)*1234.0);
 }
 
 vec3 point_at(ray r, float t) {
@@ -116,12 +143,6 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 	return got_hit;
 }
 
-vec3 random_in_unit_sphere(in float seed) {
-	vec3 dir = vec3(rand(seed), rand(seed*2.0), rand(seed*3.0));
-	float len = rand(seed*seed);
-	return dir*len;
-}
-
 vec3 sky(in ray r) {
 	vec3 unit_dir = normalize(r.direction);
 	float t = 0.5 * (unit_dir.y + 1.0);
@@ -136,7 +157,7 @@ vec3 color(in ray r) {
 		if(hit_scene(r, T_MIN, T_MAX, h)) {
 			c *= 0.5;
 			r.origin = h.p;
-			r.direction = h.p + h.normal + random_in_unit_sphere(h.t);
+			r.direction = h.normal + random_in_unit_sphere(g_seed);
 		} else {
 			c *= sky(r);
 			return c;
@@ -155,14 +176,21 @@ void main()
 {
 	vec2 uv = gl_FragCoord.xy / resolution.xy;
 
+	// Init the seed. Make it different for each pixel + frame.
+	g_seed = float(base_hash(floatBitsToUint(gl_FragCoord.xy)))/float(0xffffffffU)+time;
+
 	vec3 col = vec3(0.0);
 	for(int i=0; i<SAMPLING; ++i) {
-		vec2 jitter = vec2(random(uv+i), random(uv-i)) / resolution.xy;
+		vec2 jitter = hash2(g_seed) / resolution.xy;
 		ray r = new_ray(origin, lower_left + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical);
 		col += color(r);
 	}
 
 	col /= float(SAMPLING);
 
-	FragColor = vec4(sqrt(col), 1.0);
+	vec3 previous = texture(backbuffer, uv).rgb * frame_nb;
+	previous += col;
+	previous /= (frame_nb + 1.0);
+
+	FragColor = vec4(previous, 1.0);
 }
