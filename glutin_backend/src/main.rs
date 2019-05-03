@@ -33,21 +33,29 @@ fn main() {
     let mut mouse_next: (f64, f64) = (0.0, 0.0);
     let mut mouse_pressed = false;
 
-    while running {
-        events_loop.poll_events(|event| match event {
+    events_loop.run_forever(|event| {
+        let mut stop = false;
+        match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::CloseRequested => {
                     peglrs::quit();
-                    running = false
+                    stop = true;
                 }
                 glutin::WindowEvent::KeyboardInput { input, .. } => {
-                        if let Some(vkey) = input.virtual_keycode {
-                            match vkey {
-                                glutin::VirtualKeyCode::Escape => running = false,
-                                _ => {}
+                    if let Some(vkey) = input.virtual_keycode {
+                        match vkey {
+                            glutin::VirtualKeyCode::Escape => {
+                                stop = true;
                             }
+                            glutin::VirtualKeyCode::R => {
+                                let elapsed = time.elapsed();
+                                peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
+                                window_context.swap_buffers().unwrap();
+                            }
+                            _ => {}
                         }
                     }
+                }
                 glutin::WindowEvent::Resized(size) => {
                     let dpi = window_context.get_hidpi_factor();
                     peglrs::resize_window(size.width, size.height, dpi);
@@ -87,10 +95,11 @@ fn main() {
                 _ => (),
             },
             _ => (),
-        });
+        };
 
-        let elapsed = time.elapsed();
-        peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
-        window_context.swap_buffers().unwrap();
-    }
+        if stop {
+            return glutin::ControlFlow::Break;
+        }
+        return glutin::ControlFlow::Continue;
+    });
 }

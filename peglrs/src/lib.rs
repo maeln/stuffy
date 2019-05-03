@@ -17,7 +17,7 @@ use shaders::shader_loader::ShaderManager;
 use shaders::{Program, Shader};
 
 use cgmath::prelude::*;
-use cgmath::{perspective, Deg, Matrix4, Point3, Vector3, Vector2};
+use cgmath::{perspective, Deg, Matrix4, Point3, Vector2, Vector3};
 
 use std::ffi::CStr;
 
@@ -42,7 +42,7 @@ pub fn resize_window(width: f64, height: f64, dpi_ratio: f64) {
         if let Some(scene) = &mut m_scene {
             scene.size = Vector2 {
                 x: real_width as f32,
-                y: real_height as f32
+                y: real_height as f32,
             }
         }
     }
@@ -108,15 +108,14 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
             mesh: fs_plane,
             size: Vector2 {
                 x: true_width as f32,
-                y: true_height as f32
-            }
+                y: true_height as f32,
+            },
         })
     }
 }
 
 #[no_mangle]
-pub fn handle_mouse(dx: f32, dy: f32, speed: f32) {
-}
+pub fn handle_mouse(dx: f32, dy: f32, speed: f32) {}
 
 #[no_mangle]
 pub fn quit() {
