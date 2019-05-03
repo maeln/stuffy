@@ -107,8 +107,11 @@ impl ShaderManager {
 
     pub fn handle_reload(&mut self) {
         for program in self.receiver.try_iter() {
-            println!("Reloading program!");
             let mut prog_borrow = program.lock().unwrap();
+            let shaders = &prog_borrow.shaders;
+            for shader in shaders {
+                println!("Reloading shader: {}", shader.lock().unwrap());
+            }
             prog_borrow.reload();
         }
     }

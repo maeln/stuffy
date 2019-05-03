@@ -147,7 +147,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL, 0.02));
 	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN, 0.0));
 	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.7, 0.8, 0.9), METAL, 0.0));
-	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.15));
+	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.17));
 	
 	hit tmp_hit;
 	float closest = t_max;

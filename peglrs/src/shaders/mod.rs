@@ -1,6 +1,7 @@
 pub mod shader_loader;
 
 use std::collections::HashMap;
+use std::fmt;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -16,6 +17,19 @@ pub enum ShaderType {
     COMPUTE,
 }
 
+impl fmt::Display for ShaderType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let strext = match self {
+            &ShaderType::VERTEX => "VERTEX",
+            &ShaderType::FRAGMENT => "FRAGMENT",
+            &ShaderType::GEOMETRY => "GEOMETRY",
+            &ShaderType::COMPUTE => "COMPUTE",
+            _ => "OTHER",
+        };
+        write!(f, "{}", strext)
+    }
+}
+
 #[derive(Debug)]
 pub struct Shader {
     pub addr: u32,
@@ -23,6 +37,12 @@ pub struct Shader {
     pub uniforms: Vec<String>,
     pub shader_type: ShaderType,
     pub last_modified: SystemTime,
+}
+
+impl fmt::Display for Shader {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{} ({})", self.path, self.shader_type)
+    }
 }
 
 #[derive(Debug)]
