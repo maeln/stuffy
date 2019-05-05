@@ -17,6 +17,7 @@ uniform sampler2D backbuffer;
 
 #define LAMBERTIAN 0
 #define METAL 1
+#define DIELECTRIC 2
 
 #define SAMPLING 4
 
@@ -27,6 +28,11 @@ uint base_hash(uvec2 p) {
 }
 
 float g_seed = 0.;
+
+float hash1(inout float seed) {
+    uint n = base_hash(floatBitsToUint(vec2(seed+=.1,seed+=.1)));
+    return float(n)*(1.0/float(0xffffffffU));
+}
 
 vec2 hash2(inout float seed) {
     uint n = base_hash(floatBitsToUint(vec2(seed+=.1,seed+=.1)));
@@ -63,6 +69,7 @@ struct ray {
 struct material {
 	vec3 albedo;
 	float fuzz;
+	float refraction;
 	int type;
 };
 
@@ -95,11 +102,12 @@ hit new_hit(float ht, vec3 point, vec3 norm, material m) {
 	return h;
 }
 
-material new_material(vec3 a, int t, float f) {
+material new_material(vec3 a, int t, float f, float r) {
 	material m;
 	m.albedo = a;
 	m.type = t;
 	m.fuzz = f;
+	m.refraction = r;
 	return m;
 }
 
@@ -113,6 +121,22 @@ sphere new_sphere(vec3 c, float r, material m) {
 
 vec3 point_at(ray r, float t) {
 	return (r.origin + t * r.direction);
+}
+
+float schlick(float cosine, float ref_idx) {
+	float r0 = (1.0 - ref_idx) / (1.0 + ref_idx);
+	r0 = r0*r0;
+	return r0 + (1.0 - r0) * pow((1.0 - cosine), 5.0);
+}
+
+bool refraction(in vec3 dir, in vec3 normal, in float ni_over_nt, inout vec3 refracted) {
+	float dt = dot(normalize(dir), normal);
+	float discriminant = 1.0 - ni_over_nt*ni_over_nt * (1.0 - dt*dt);
+	if(discriminant > 0.0) {
+		refracted = ni_over_nt * (normalize(dir) - normal*dt) - normal*sqrt(discriminant);
+		return true;
+	}
+	return false;
 }
 
 bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h) {
@@ -144,10 +168,10 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 }
 
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
-	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL, 0.02));
-	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN, 0.0));
-	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.7, 0.8, 0.9), METAL, 0.0));
-	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.17));
+	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL, 0.02, 0.0));
+	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN, 0.0, 0.0));
+	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), -0.5, new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
+	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.17, 0.0));
 	
 	hit tmp_hit;
 	float closest = t_max;
@@ -200,11 +224,47 @@ bool metal_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered
 	return (dot(scattered.direction, h.normal) > 0.0);
 }
 
+bool dielectric_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
+	vec3 outward_normal;
+	vec3 reflected = reflect(normalize(r.direction), h.normal);
+	float ni_over_nt;
+	attenuation = vec3(1.0);
+	vec3 refracted;
+	float reflect_prob;
+	float cosine;
+
+	if(dot(normalize(r.direction), h.normal) > 0.0) {
+		outward_normal = -h.normal;
+		ni_over_nt = h.m.refraction;
+		cosine = h.m.refraction * dot(normalize(r.direction), h.normal) / length(r.direction);
+	} else {
+		outward_normal = h.normal;
+		ni_over_nt = 1.0 / h.m.refraction;
+		cosine = -dot(normalize(r.direction), h.normal) / length(r.direction);
+	}
+
+	if(refraction(r.direction, h.normal, ni_over_nt, refracted)) {
+		reflect_prob = schlick(cosine, h.m.refraction);
+	} else {
+		reflect_prob = 1.0;
+	}
+
+	if(hash1(g_seed) < reflect_prob) {
+		scattered = ray(h.p, reflected);
+	} else {
+		scattered = ray(h.p, refracted);
+	}
+
+	return true;
+}
+
 bool material_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
 	if(h.m.type == LAMBERTIAN) {
 		return lambertian_scatter(r, h, attenuation, scattered);
 	} else if(h.m.type == METAL) {
 		return metal_scatter(r, h, attenuation, scattered);
+	} else if(h.m.type == DIELECTRIC) {
+		return dielectric_scatter(r, h, attenuation, scattered);
 	} else {
 		return false;
 	}
