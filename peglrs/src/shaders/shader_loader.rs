@@ -113,7 +113,6 @@ impl ShaderManager {
         // So we delete copycat first.
         for program in self.receiver.try_iter() {
             let addr = program.lock().unwrap().addr;
-            println!("r {}:{:?}", addr, reloaded_ids);
             if(reloaded_ids.binary_search(&addr).is_err()) {
                 reloaded_ids.push(addr);
                 flagged.push(program);
