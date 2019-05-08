@@ -12,8 +12,8 @@ uniform sampler2D backbuffer;
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
 #define T_MIN 1e-4
-#define T_MAX 100.0
-#define MAX_BOUNCE 5
+#define T_MAX 1000000.0
+#define MAX_BOUNCE 6
 
 #define LAMBERTIAN 0
 #define METAL 1
@@ -139,6 +139,19 @@ bool refraction(in vec3 dir, in vec3 normal, in float ni_over_nt, inout vec3 ref
 	return false;
 }
 
+bool modified_refract(const in vec3 v, const in vec3 n, const in float ni_over_nt, 
+                      out vec3 refracted) {
+    float dt = dot(v, n);
+    float discriminant = 1. - ni_over_nt*ni_over_nt*(1.-dt*dt);
+    if (discriminant > 0.) {
+        refracted = ni_over_nt*(v - n*dt) - n*sqrt(discriminant);
+        return true;
+    } else { 
+        return false;
+    }
+}
+
+
 bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h) {
 	vec3 oc = r.origin - s.center;
 	float a = dot(r.direction, r.direction);
@@ -168,10 +181,12 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
 }
 
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
-	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), METAL, 0.02, 0.0));
-	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.2, 0.2), LAMBERTIAN, 0.0, 0.0));
-	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), -0.5, new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
-	sphere s4 = new_sphere(vec3(-0.7, 0.0, 0.0), 0.5, new_material(vec3(1.0,  0.843, 0.0), METAL, 0.17, 0.0));
+	sphere s1 = new_sphere(vec3(0.0, -100.5, -1.0), 100.0, new_material(vec3(0.1, 0.8, 0.3), LAMBERTIAN, 0.02, 0.0));
+	sphere s2 = new_sphere(vec3(0.0, 0.0, -1.0), 0.5, new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
+	sphere s3 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5, new_material(vec3(0.8, 0.6, 0.2), METAL, 0.2, 1.5));
+
+	sphere s4 = new_sphere(vec3(-1.0, 0.0, -1.0), -0.45, new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
+	sphere s5 = new_sphere(vec3(-1.0, 0.0, -1.0), 0.5, new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
 	
 	hit tmp_hit;
 	float closest = t_max;
@@ -201,6 +216,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 		h = tmp_hit;
 	}
 
+	if(hit_sphere(s5, r, t_min, closest, tmp_hit)) {
+		closest = tmp_hit.t;
+		got_hit = true;
+		h = tmp_hit;
+	}
+
 	return got_hit;
 }
 
@@ -225,25 +246,22 @@ bool metal_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered
 }
 
 bool dielectric_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
-	vec3 outward_normal;
-	vec3 reflected = reflect(normalize(r.direction), h.normal);
-	float ni_over_nt;
+	vec3 outward_normal, refracted;
+	vec3 reflected = reflect(r.direction, h.normal);
+	float ni_over_nt, reflect_prob, cosine;
 	attenuation = vec3(1.0);
-	vec3 refracted;
-	float reflect_prob;
-	float cosine;
 
-	if(dot(normalize(r.direction), h.normal) > 0.0) {
+	if(dot(r.direction, h.normal) > 0.0) {
 		outward_normal = -h.normal;
 		ni_over_nt = h.m.refraction;
 		cosine = h.m.refraction * dot(normalize(r.direction), h.normal) / length(r.direction);
 	} else {
 		outward_normal = h.normal;
 		ni_over_nt = 1.0 / h.m.refraction;
-		cosine = -dot(normalize(r.direction), h.normal) / length(r.direction);
+		cosine = -dot(r.direction, h.normal);
 	}
 
-	if(refraction(r.direction, h.normal, ni_over_nt, refracted)) {
+	if(refraction(r.direction, outward_normal, ni_over_nt, refracted)) {
 		reflect_prob = schlick(cosine, h.m.refraction);
 	} else {
 		reflect_prob = 1.0;
@@ -301,13 +319,13 @@ ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect, vec2 u
 	vec3 u = normalize(cross(up, w));
 	vec3 v = cross(w, u);
 	
-	vec3 lower_left_corner = eye - half_width*u - half_height*v -w;
+	vec3 lower_left_corner = eye - half_width*u - half_height*v - w;
 	vec3 horizontal = 2.0*half_width*u;
 	vec3 vertical = 2.0*half_height*v;
 	
 
 	vec2 jitter = hash2(g_seed) / resolution.xy;
-	return new_ray(eye, lower_left_corner + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical);
+	return new_ray(eye, lower_left_corner + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical - eye);
 }
 
 void main()
@@ -319,7 +337,7 @@ void main()
 
 	vec3 col = vec3(0.0);
 	for(int i=0; i<SAMPLING; ++i) {
-		ray r = get_cam_ray(vec3(0.0, 0.0, -1.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), 90.0, resolution.x/resolution.y, uv);
+		ray r = get_cam_ray(vec3(0.0, 0.0, 1.0), vec3(0.0, 0.0, -1.0), vec3(0.0, 1.0, 0.0), 90.0, resolution.x/resolution.y, uv);
 		col += color(r);
 	}
 
