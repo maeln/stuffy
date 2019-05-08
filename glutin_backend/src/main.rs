@@ -14,6 +14,7 @@ fn main() {
     let window_context = glutin::ContextBuilder::new()
         .build_windowed(window, &events_loop)
         .unwrap();
+
     unsafe {
         window_context.make_current().unwrap();
     }
@@ -32,9 +33,16 @@ fn main() {
     let mut mouse_prev: (f64, f64) = (0.0, 0.0);
     let mut mouse_next: (f64, f64) = (0.0, 0.0);
     let mut mouse_pressed = false;
+    let mut loop_render = false;
 
     events_loop.run_forever(|event| {
         let mut stop = false;
+        if loop_render {
+            let elapsed = time.elapsed();
+            peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
+            window_context.swap_buffers().unwrap();
+        }
+
         match event {
             glutin::Event::WindowEvent { event, .. } => match event {
                 glutin::WindowEvent::CloseRequested => {
@@ -48,9 +56,14 @@ fn main() {
                                 stop = true;
                             }
                             glutin::VirtualKeyCode::R => {
-                                let elapsed = time.elapsed();
-                                peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
-                                window_context.swap_buffers().unwrap();
+                                if !loop_render {
+                                    let elapsed = time.elapsed();
+                                    peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
+                                    window_context.swap_buffers().unwrap();
+                                }
+                            }
+                            glutin::VirtualKeyCode::T => {
+                                loop_render = !loop_render;
                             }
                             glutin::VirtualKeyCode::P => {
                                 peglrs::reset(0);
