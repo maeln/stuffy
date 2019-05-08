@@ -293,10 +293,22 @@ vec3 color(in ray r) {
 	return c;
 }
 
-vec3 lower_left = vec3(-2.0, -1.0, -1.0);
-vec3 horizontal = vec3(4.0, 0.0, 0.0);
-vec3 vertical = vec3(0.0, 2.0, 0.0);
-vec3 origin = vec3(0.0, 0.0, 0.0);
+ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect, vec2 uv) {
+	float theta = vfov * PI / 180.0;
+	float half_height = tan(theta/2.0);
+	float half_width = aspect * half_height;
+	vec3 w = normalize(eye - lookat);
+	vec3 u = normalize(cross(up, w));
+	vec3 v = cross(w, u);
+	
+	vec3 lower_left_corner = eye - half_width*u - half_height*v -w;
+	vec3 horizontal = 2.0*half_width*u;
+	vec3 vertical = 2.0*half_height*v;
+	
+
+	vec2 jitter = hash2(g_seed) / resolution.xy;
+	return new_ray(eye, lower_left_corner + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical);
+}
 
 void main()
 {
@@ -307,8 +319,7 @@ void main()
 
 	vec3 col = vec3(0.0);
 	for(int i=0; i<SAMPLING; ++i) {
-		vec2 jitter = hash2(g_seed) / resolution.xy;
-		ray r = new_ray(origin, lower_left + (uv.x+jitter.x) * horizontal + (uv.y+jitter.y) * vertical);
+		ray r = get_cam_ray(vec3(0.0, 0.0, -1.0), vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), 90.0, resolution.x/resolution.y, uv);
 		col += color(r);
 	}
 

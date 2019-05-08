@@ -106,7 +106,21 @@ impl ShaderManager {
     }
 
     pub fn handle_reload(&mut self) {
+        let mut reloaded_ids: Vec<u32> = Vec::new();
+        let mut flagged = Vec::new();
+
+        // In some cases, we can receive several time the same program.
+        // So we delete copycat first.
         for program in self.receiver.try_iter() {
+            let addr = program.lock().unwrap().addr;
+            println!("r {}:{:?}", addr, reloaded_ids);
+            if(reloaded_ids.binary_search(&addr).is_err()) {
+                reloaded_ids.push(addr);
+                flagged.push(program);
+            }
+        }
+
+        for program in flagged {
             let mut prog_borrow = program.lock().unwrap();
             let shaders = &prog_borrow.shaders;
             for shader in shaders {
