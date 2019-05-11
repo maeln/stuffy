@@ -1,3 +1,12 @@
+// MUST REMOVE WHEN REALLY DOING STUFF
+#![allow(dead_code)]
+#![allow(non_upper_case_globals)]
+#![allow(unused_variables)]
+#![allow(unused_imports)]
+#![allow(unused_mut)]
+#![allow(unreachable_patterns)]
+#![allow(non_camel_case_types)]
+
 extern crate cgmath;
 extern crate gl;
 extern crate gl_loader;
