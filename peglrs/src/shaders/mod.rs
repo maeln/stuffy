@@ -24,7 +24,6 @@ impl fmt::Display for ShaderType {
             &ShaderType::FRAGMENT => "FRAGMENT",
             &ShaderType::GEOMETRY => "GEOMETRY",
             &ShaderType::COMPUTE => "COMPUTE",
-            _ => "OTHER",
         };
         write!(f, "{}", strext)
     }
@@ -85,6 +84,5 @@ pub fn get_gl_shader_type(shader_type: &ShaderType) -> Option<u32> {
         ShaderType::FRAGMENT => Some(gl::FRAGMENT_SHADER),
         ShaderType::GEOMETRY => Some(gl::GEOMETRY_SHADER),
         ShaderType::COMPUTE => Some(gl::COMPUTE_SHADER),
-        _ => None,
     }
 }

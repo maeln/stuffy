@@ -46,7 +46,7 @@ impl<T> Graph<T> {
         self.nodes.get(&id)
     }
 
-    fn get_node_child(&self, id: usize) -> Vec<&T> {
+    fn get_node_child(&self, id: &usize) -> Vec<&T> {
         let mut childs: Vec<&T> = Vec::new();
         let neighbors = self.dir.get(&id);
         if neighbors.map_or(true, |n| n.is_empty()) {
@@ -60,5 +60,26 @@ impl<T> Graph<T> {
             }
         }
         return childs;
+    }
+
+    fn add_child(&mut self, parent: &usize, child: &usize) {
+        if !self.dir.contains_key(parent) {
+            self.dir.insert(*parent, vec![*child]);
+        } else {
+            let mut children = self.dir.get_mut(parent).unwrap();
+            match children.binary_search(child) {
+                Ok(_) => (),
+                Err(_) => children.push(*child),
+            };
+        }
+    }
+
+    fn rm_child(&mut self, parent: &usize, child: &usize) {
+        if let Some(dir) = self.dir.get_mut(parent) {
+            match dir.binary_search(child) {
+                Ok(id) => dir.remove(id),
+                Err(_) => 0,
+            };
+        }
     }
 }
