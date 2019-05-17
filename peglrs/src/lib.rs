@@ -17,6 +17,8 @@ mod scene;
 mod shaders;
 mod utils;
 
+use scene::Graph;
+
 use std::path::Path;
 use std::sync::Arc;
 
@@ -110,6 +112,20 @@ pub fn init_gl(width: f64, height: f64, dpi_ratio: f64) {
 
 #[no_mangle]
 pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
+    let mut g1: Graph<String> = Graph::new();
+    let n1 = g1.add_node("hello".to_string());
+    let n2 = g1.add_node("world".to_string());
+    let n3 = g1.add_node("!".to_string());
+    let n4 = g1.add_node("Alone".to_string());
+    g1.add_child(&n1, &n2);
+    g1.add_child(&n1, &n3);
+    g1.add_child(&n2, &n3);
+    g1.add_child(&n3, &n2);
+
+    println!("{:?}", g1);
+    g1.rm_node(&n3);
+    println!("{:?}", g1);
+
     let true_width = width * dpi_ratio;
     let true_height = height * dpi_ratio;
 

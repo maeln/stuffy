@@ -3,6 +3,7 @@ use crate::shaders::Program;
 
 use cgmath::Matrix4;
 use std::collections::HashMap;
+use std::fmt::{Debug, Formatter, Result};
 use std::rc::Rc;
 
 #[derive(Debug)]
@@ -15,19 +16,19 @@ impl DrawableObject {
     pub fn draw() {}
 }
 
-enum NodeType {
+pub enum NodeType {
     MeshNode(Rc<Mesh>),
     TransformNode(Matrix4<f32>),
 }
 
-struct Graph<T> {
+pub struct Graph<T> {
     counter: usize,
     nodes: HashMap<usize, T>,
     dir: HashMap<usize, Vec<usize>>,
 }
 
 impl<T> Graph<T> {
-    fn new() -> Graph<T> {
+    pub fn new() -> Graph<T> {
         Graph {
             counter: 0,
             nodes: HashMap::new(),
@@ -35,18 +36,18 @@ impl<T> Graph<T> {
         }
     }
 
-    fn add_node(&mut self, node: T) -> usize {
+    pub fn add_node(&mut self, node: T) -> usize {
         self.nodes.insert(self.counter, node);
         let c = self.counter;
         self.counter += 1;
         return c;
     }
 
-    fn get_node(&self, id: &usize) -> Option<&T> {
+    pub fn get_node(&self, id: &usize) -> Option<&T> {
         self.nodes.get(&id)
     }
 
-    fn get_node_child(&self, id: &usize) -> Vec<&T> {
+    pub fn get_node_child(&self, id: &usize) -> Vec<&T> {
         let mut childs: Vec<&T> = Vec::new();
         let neighbors = self.dir.get(&id);
         if neighbors.map_or(true, |n| n.is_empty()) {
@@ -62,7 +63,7 @@ impl<T> Graph<T> {
         return childs;
     }
 
-    fn add_child(&mut self, parent: &usize, child: &usize) {
+    pub fn add_child(&mut self, parent: &usize, child: &usize) {
         if !self.dir.contains_key(parent) {
             self.dir.insert(*parent, vec![*child]);
         } else {
@@ -74,12 +75,47 @@ impl<T> Graph<T> {
         }
     }
 
-    fn rm_child(&mut self, parent: &usize, child: &usize) {
+    pub fn rm_child(&mut self, parent: &usize, child: &usize) {
         if let Some(dir) = self.dir.get_mut(parent) {
             match dir.binary_search(child) {
                 Ok(id) => dir.remove(id),
                 Err(_) => 0,
             };
         }
+    }
+
+    pub fn rm_node(&mut self, nid: &usize) {
+        if self.nodes.get(nid).is_some() {
+            self.nodes.remove(nid);
+            self.dir.remove(nid);
+
+            for (_, childs) in self.dir.iter_mut() {
+                match childs.binary_search(nid) {
+                    Ok(id) => childs.remove(id),
+                    Err(_) => 0,
+                };
+            }
+        }
+    }
+}
+
+impl<T: Debug> Debug for Graph<T> {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "digraph {{\n")?;
+        for (_, v) in self.nodes.iter() {
+            write!(f, "\t{:?};\n", v)?;
+        }
+
+        for (parent, childs) in self.dir.iter() {
+            for child in childs {
+                write!(
+                    f,
+                    "\t{:?} -> {:?};\n",
+                    self.get_node(&parent).unwrap(),
+                    self.get_node(&child).unwrap()
+                )?;
+            }
+        }
+        write!(f, "}}")
     }
 }

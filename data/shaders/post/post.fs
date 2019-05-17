@@ -19,7 +19,7 @@ uniform sampler2D backbuffer;
 #define METAL 1
 #define DIELECTRIC 2
 
-#define SAMPLING 2
+#define SAMPLING 1
 
 uint base_hash(uvec2 p) {
   p = 1103515245U * ((p >> 1U) ^ (p.yx));
