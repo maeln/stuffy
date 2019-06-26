@@ -11,9 +11,9 @@ uniform sampler2D backbuffer;
 #define PI 3.141592
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
-#define T_MIN 1e-4
-#define T_MAX 1000000.0
-#define MAX_BOUNCE 5
+#define T_MIN 1e-5
+#define T_MAX 1e6
+#define MAX_BOUNCE 6
 
 #define LAMBERTIAN 0
 #define METAL 1
@@ -185,8 +185,8 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
                  new_material(vec3(0.1, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0));
 
   sphere s2 =
-      new_sphere(vec3(1.0, 0.0, 1.0), 0.2,
-                 new_material(vec3(0.3, 0.1, 0.5), DIELECTRIC, 0.3, -2.0));
+      new_sphere(vec3(0.0, -100.5, -1.0), 100.5,
+                 new_material(vec3(0.0), DIELECTRIC, 0.0, 1.33));
 
   sphere s3 =
       new_sphere(vec3(0.0, 0.0, -1.0), 0.5,
@@ -195,10 +195,10 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s4 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.2, 1.5));
 
-  sphere s5 = new_sphere(vec3(-1.0, 0.0, -1.0), -0.45,
+  sphere s5 = new_sphere(vec3(-1.0, 0.0, -1.0), -1.45,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
 
-  sphere s6 = new_sphere(vec3(-1.0, 0.0, -1.0), 0.5,
+  sphere s6 = new_sphere(vec3(-1.0, 0.0, -1.0), 1.5,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
 
   sphere s7 =

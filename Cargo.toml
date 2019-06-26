@@ -2,4 +2,6 @@
 members = [
     "glutin_backend",
     "peglrs",
+    "shader_preprocessor",
+    "mini_graph",
 ]

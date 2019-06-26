@@ -9,6 +9,7 @@
 extern crate cgmath;
 extern crate gl;
 extern crate gl_loader;
+extern crate mini_graph;
 
 mod camera;
 mod frame;
@@ -17,7 +18,7 @@ mod scene;
 mod shaders;
 mod utils;
 
-use scene::Graph;
+use mini_graph::Graph;
 
 use std::path::Path;
 use std::sync::Arc;
