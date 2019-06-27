@@ -7,7 +7,7 @@ pub struct Graph<T> {
     dir: HashMap<usize, Vec<usize>>,
 }
 
-impl<T> Graph<T> {
+impl<T: PartialEq> Graph<T> {
     pub fn new() -> Graph<T> {
         Graph {
             counter: 0,
@@ -79,7 +79,7 @@ impl<T> Graph<T> {
     }
 }
 
-impl<T: Debug> Debug for Graph<T> {
+impl<T: Debug + PartialEq> Debug for Graph<T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "digraph {{\n")?;
         for (_, v) in self.nodes.iter() {

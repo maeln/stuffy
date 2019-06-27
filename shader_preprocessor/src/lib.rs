@@ -2,11 +2,44 @@ extern crate mini_graph;
 
 use mini_graph::Graph;
 
+use std::fs;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 use std::vec::Vec;
+use std::time::SystemTime;
+use std::collections::HashMap;
+
+pub struct ShaderFile {
+    path: PathBuf,
+    source: String,
+    lm_time: SystemTime,
+}
+
+impl PartialEq for ShaderFile {
+    // For our usage, we just want shaders sources to be considered equal when they have the same path.
+    fn eq(&self, other: &Self) -> bool {
+        self.path == other.path
+    }
+}
+
+impl Eq for ShaderFile {}
+
+
+pub struct ShaderDB {
+    base_path: PathBuf,
+    shaders: Graph<ShaderFile>,
+}
+
+impl ShaderDB {
+    pub fn new(base_path: &Path) -> ShaderDB {
+        ShaderDB {
+            base_path: base_path.to_path_buf(),
+            shaders: Graph::new(),
+        }
+    }
+}
 
 pub struct ShaderSource {
     path: String,
@@ -15,7 +48,13 @@ pub struct ShaderSource {
     uniforms: Vec<String>,
 }
 
-pub fn read_file(path: &Path) -> Option<String> {
+
+pub fn get_lm_time(path: &Path) -> Option<std::time::SystemTime> {
+    let stat = fs::metadata(path).unwrap();
+    stat.modified().ok()
+}
+
+pub fn read_file(path: &Path) -> Option<String> {  
     let res_file = File::open(path);
     if res_file.is_err() {
         return None;
@@ -108,6 +147,9 @@ pub fn build_dependency_graph<'a>(shdr: &'a ShaderSource) -> Graph<&'a ShaderSou
         if !dpath.has_root() {
             dpath = base_path.with_file_name(dpath);
         }
+
+        let shdr_deps = parse_shader(&dpath).unwrap();
+        
     }
 
     deps
