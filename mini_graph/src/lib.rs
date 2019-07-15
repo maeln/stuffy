@@ -1,3 +1,5 @@
+use std::collections::hash_map::Iter;
+use std::collections::hash_map::IterMut;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter, Result};
 
@@ -7,13 +9,21 @@ pub struct Graph<T> {
     dir: HashMap<usize, Vec<usize>>,
 }
 
-impl<T: PartialEq> Graph<T> {
+impl<T> Graph<T> {
     pub fn new() -> Graph<T> {
         Graph {
             counter: 0,
             nodes: HashMap::new(),
             dir: HashMap::new(),
         }
+    }
+
+    pub fn iter_node(&self) -> Iter<usize, T> {
+        self.nodes.iter()
+    }
+
+    pub fn iter_mut_node(&mut self) -> IterMut<usize, T> {
+        self.nodes.iter_mut()
     }
 
     pub fn add_node(&mut self, node: T) -> usize {
@@ -25,6 +35,10 @@ impl<T: PartialEq> Graph<T> {
 
     pub fn get_node(&self, id: &usize) -> Option<&T> {
         self.nodes.get(&id)
+    }
+
+    pub fn get_mut_node(&mut self, id: &usize) -> Option<&mut T> {
+        self.nodes.get_mut(&id)
     }
 
     pub fn get_node_child(&self, id: &usize) -> Vec<&T> {
@@ -79,7 +93,7 @@ impl<T: PartialEq> Graph<T> {
     }
 }
 
-impl<T: Debug + PartialEq> Debug for Graph<T> {
+impl<T: Debug> Debug for Graph<T> {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(f, "digraph {{\n")?;
         for (_, v) in self.nodes.iter() {
