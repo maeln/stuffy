@@ -13,13 +13,13 @@ uniform sampler2D backbuffer;
 
 #define T_MIN 1e-5
 #define T_MAX 1e6
-#define MAX_BOUNCE 6
+#define MAX_BOUNCE 12
 
 #define LAMBERTIAN 0
 #define METAL 1
 #define DIELECTRIC 2
 
-#define SAMPLING 1
+#define SAMPLING 4
 
 uint base_hash(uvec2 p) {
   p = 1103515245U * ((p >> 1U) ^ (p.yx));
@@ -183,23 +183,22 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s1 =
       new_sphere(vec3(0.0, -100.5, -1.0), 100.0,
                  new_material(vec3(0.1, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0));
-
-  sphere s2 =
-      new_sphere(vec3(0.0, -100.5, -1.0), 100.5,
-                 new_material(vec3(0.0), DIELECTRIC, 0.0, 1.33));
-
+  /*
+  sphere s2 = new_sphere(vec3(0.0, -100.5, -1.0), 100.5,
+                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.33));
+  */
   sphere s3 =
       new_sphere(vec3(0.0, 0.0, -1.0), 0.5,
                  new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
 
   sphere s4 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.2, 1.5));
-
-  sphere s5 = new_sphere(vec3(-1.0, 0.0, -1.0), -1.45,
-                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
-
+  
+  sphere s5 = new_sphere(vec3(-1.0, 0.0, 2.0), 1.0,
+                         new_material(vec3(0.0), DIELECTRIC, 0.2, 1.5));
+  
   sphere s6 = new_sphere(vec3(-1.0, 0.0, -1.0), 1.5,
-                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.5));
+                         new_material(vec3(0.0), DIELECTRIC, 0.1, 3.5));
 
   sphere s7 =
       new_sphere(vec3(-3.0, 1.0, 1.0), 1.5,
@@ -214,12 +213,13 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     got_hit = true;
     h = tmp_hit;
   }
-
+  /*
   if (hit_sphere(s2, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
   }
+  */
 
   if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
@@ -232,13 +232,13 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     got_hit = true;
     h = tmp_hit;
   }
-
+  
   if (hit_sphere(s5, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
   }
-
+  
   if (hit_sphere(s6, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
@@ -257,7 +257,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 vec3 sky(in ray r) {
   vec3 unit_dir = normalize(r.direction);
   float t = 0.5 * (unit_dir.y + 1.0);
-  return (1.0 - t) * vec3(1.0) + t * vec3(0.5, 0.7, 1.0);
+  return (1.0 - t) * vec3(0.0) + t * vec3(0.8, 0.2, 0.3);
 }
 
 bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
@@ -375,7 +375,7 @@ void main() {
   vec3 col = vec3(0.0);
   for (int i = 0; i < SAMPLING; ++i) {
     ray r =
-        get_cam_ray(vec3(2.0, 2.0, 1.0), vec3(0.0, 0.0, -1.0),
+        get_cam_ray(vec3(2.0, 2.0, 2.0), vec3(0.0, 0.0, -1.0),
                     vec3(0.0, 1.0, 0.0), 90.0, resolution.x / resolution.y, uv);
     col += color(r);
   }

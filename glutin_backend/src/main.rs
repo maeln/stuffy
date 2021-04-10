@@ -8,7 +8,7 @@ fn main() {
     let mut events_loop = glutin::EventsLoop::new();
     let window = glutin::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_dimensions(glutin::dpi::LogicalSize::new(200.0, 100.0))
+        .with_dimensions(glutin::dpi::LogicalSize::new(600.0, 600.0))
         .with_decorations(true)
         .with_transparency(false);
     let window_context = glutin::ContextBuilder::new()
@@ -34,17 +34,26 @@ fn main() {
     let mut mouse_next: (f64, f64) = (0.0, 0.0);
     let mut mouse_pressed = false;
     let mut loop_render = false;
+    let mut pause = false;
 
     events_loop.run_forever(|event| {
         let mut stop = false;
-        if loop_render {
-            let elapsed = time.elapsed();
+
+        let elapsed = time.elapsed();
+        if !pause {
             peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
             window_context.swap_buffers().unwrap();
         }
-
         match event {
             glutin::Event::WindowEvent { event, .. } => match event {
+                glutin::WindowEvent::Focused(focused) => {
+                    pause = !focused;
+                    if pause {
+                        window_context.set_title("Stuffy *PAUSED* (ESC)");
+                    } else {
+                        window_context.set_title("Stuffy (ESC)");
+                    }
+                }
                 glutin::WindowEvent::CloseRequested => {
                     peglrs::quit();
                     stop = true;
@@ -54,16 +63,6 @@ fn main() {
                         match vkey {
                             glutin::VirtualKeyCode::Escape => {
                                 stop = true;
-                            }
-                            glutin::VirtualKeyCode::R => {
-                                if !loop_render {
-                                    let elapsed = time.elapsed();
-                                    peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
-                                    window_context.swap_buffers().unwrap();
-                                }
-                            }
-                            glutin::VirtualKeyCode::T => {
-                                loop_render = !loop_render;
                             }
                             glutin::VirtualKeyCode::P => {
                                 peglrs::reset(0);
