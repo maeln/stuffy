@@ -27,7 +27,7 @@ uint base_hash(uvec2 p) {
   return h32 ^ (h32 >> 16);
 }
 
-float g_seed = 0.;
+float g_seed = frame_nb;
 
 float hash1(inout float seed) {
   uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
@@ -58,6 +58,14 @@ vec3 random_in_unit_sphere(inout float seed) {
   float phi = h.y;
   float r = pow(h.z, 1. / 3.);
   return r * vec3(sqrt(1. - h.x * h.x) * vec2(sin(phi), cos(phi)), h.x);
+}
+
+vec3 random_in_unit_disk() {
+    while (true) {
+        vec3 p = vec3(hash1(g_seed), hash1(g_seed), 0);
+        if (dot(p,p) >= 1) continue;
+        return p;
+    }
 }
 
 struct ray {
@@ -191,7 +199,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
       new_sphere(vec3(0.0, 0.0, -1.0), 0.5,
                  new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
 
-  sphere s4 = new_sphere(vec3(1.0, 0.0, -1.0), 0.5,
+  sphere s4 = new_sphere(vec3(1.6, 0.0, -1.3), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.2, 1.5));
   
   sphere s5 = new_sphere(vec3(-1.0, 0.0, 2.0), 1.0,
@@ -347,7 +355,7 @@ vec3 color(in ray r) {
 }
 
 ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect,
-                vec2 uv) {
+                vec2 uv, float aperture, float focus_dist) {
   float theta = vfov * PI / 180.0;
   float half_height = tan(theta / 2.0);
   float half_width = aspect * half_height;
@@ -355,13 +363,18 @@ ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect,
   vec3 u = normalize(cross(up, w));
   vec3 v = cross(w, u);
 
-  vec3 lower_left_corner = eye - half_width * u - half_height * v - w;
-  vec3 horizontal = 2.0 * half_width * u;
-  vec3 vertical = 2.0 * half_height * v;
+  vec3 horizontal = focus_dist * half_width * u;
+  vec3 vertical = focus_dist * half_height * v;
+  vec3 lower_left_corner = eye - horizontal/2.0 - vertical/2.0 - focus_dist*w;
 
   vec2 jitter = hash2(g_seed) / resolution.xy;
-  return new_ray(eye, lower_left_corner + (uv.x + jitter.x) * horizontal +
-                          (uv.y + jitter.y) * vertical - eye);
+  float lens_radius = aperture / 2.0;
+
+  vec3 rd = lens_radius * random_in_unit_disk();
+  vec3 offset = u * rd.x + v * rd.y;
+
+  return new_ray(eye + offset, 
+                  lower_left_corner + (uv.x + jitter.x) * horizontal + (uv.y + jitter.y) * vertical - eye - offset);
 }
 
 void main() {
@@ -372,11 +385,14 @@ void main() {
       float(base_hash(floatBitsToUint(gl_FragCoord.xy))) / float(0xffffffffU) +
       time;
 
+  vec3 eye = vec3(2.0, 2.0, 2.0);
+  vec3 lookat = vec3(0.0, 0.5, 0.0);
+  float aspect = resolution.x / resolution.y;
+  float focus_dist = distance(eye, lookat);
+
   vec3 col = vec3(0.0);
   for (int i = 0; i < SAMPLING; ++i) {
-    ray r =
-        get_cam_ray(vec3(2.0, 2.0, 2.0), vec3(0.0, 0.0, -1.0),
-                    vec3(0.0, 1.0, 0.0), 90.0, resolution.x / resolution.y, uv);
+    ray r = get_cam_ray(eye, lookat, vec3(0.0, 1.0, 0.0), 90.0, aspect, uv, 0.3, focus_dist);
     col += color(r);
   }
 
