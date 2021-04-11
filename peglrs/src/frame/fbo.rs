@@ -1,7 +1,8 @@
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ColorAttachment {
     RGBA_8B,
     RGBA_16F,
+    RGBA_32F,
 }
 
 #[derive(Debug)]
@@ -18,13 +19,14 @@ pub struct Framebuffer {
     pub depth_stencil_type: Option<DepthStencilAttachment>,
 }
 
-pub fn make_color_attachment(attachment_type: &ColorAttachment, width: i32, height: i32) -> u32 {
+pub fn make_color_attachment(attachment_type: ColorAttachment, width: i32, height: i32) -> u32 {
     let mut addr = 0;
     unsafe {
         gl::GenTextures(1, &mut addr);
         gl::BindTexture(gl::TEXTURE_2D, addr);
+
         match attachment_type {
-            &ColorAttachment::RGBA_8B => {
+            ColorAttachment::RGBA_8B => {
                 gl::TexImage2D(
                     gl::TEXTURE_2D,
                     0,
@@ -37,7 +39,7 @@ pub fn make_color_attachment(attachment_type: &ColorAttachment, width: i32, heig
                     std::ptr::null(),
                 );
             }
-            &ColorAttachment::RGBA_16F => {
+            ColorAttachment::RGBA_16F => {
                 gl::TexImage2D(
                     gl::TEXTURE_2D,
                     0,
@@ -46,7 +48,20 @@ pub fn make_color_attachment(attachment_type: &ColorAttachment, width: i32, heig
                     height,
                     0,
                     gl::RGBA,
-                    gl::FLOAT,
+                    gl::UNSIGNED_BYTE,
+                    std::ptr::null(),
+                );
+            }
+            ColorAttachment::RGBA_32F => {
+                gl::TexImage2D(
+                    gl::TEXTURE_2D,
+                    0,
+                    gl::RGBA32F as i32,
+                    width,
+                    height,
+                    0,
+                    gl::RGBA,
+                    gl::UNSIGNED_BYTE,
                     std::ptr::null(),
                 );
             }
@@ -62,8 +77,8 @@ pub fn make_color_attachment(attachment_type: &ColorAttachment, width: i32, heig
             gl::TEXTURE_WRAP_T,
             gl::CLAMP_TO_BORDER as i32,
         );
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
-        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::NEAREST as i32);
+        gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::NEAREST as i32);
 
         gl::BindTexture(gl::TEXTURE_2D, 0);
     }
@@ -113,7 +128,7 @@ impl Framebuffer {
         width: i32,
         height: i32,
     ) -> Framebuffer {
-        let color = make_color_attachment(&color_attachment, width, height);
+        let color = make_color_attachment(color_attachment, width, height);
         let ds = make_depth_stencil_attachment(&depth_stencil_attachment, width, height);
 
         let mut addr = 0;
@@ -157,6 +172,15 @@ impl Framebuffer {
     pub fn new_hdr(width: i32, height: i32) -> Framebuffer {
         Framebuffer::new(
             ColorAttachment::RGBA_16F,
+            DepthStencilAttachment::DEPTH24_STENCIL8,
+            width,
+            height,
+        )
+    }
+
+    pub fn new_xhdr(width: i32, height: i32) -> Framebuffer {
+        Framebuffer::new(
+            ColorAttachment::RGBA_32F,
             DepthStencilAttachment::DEPTH24_STENCIL8,
             width,
             height,

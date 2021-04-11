@@ -1,4 +1,4 @@
-#version 330 core
+#version 430
 out vec4 FragColor;
 
 in vec2 TexCoords;
@@ -6,20 +6,23 @@ in vec2 TexCoords;
 uniform float time;
 uniform vec2 resolution;
 uniform float frame_nb;
-uniform sampler2D backbuffer;
+//uniform sampler2D backbuffer;
+//uniform sampler2D scenebuffer;
 
 #define PI 3.141592
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
 #define T_MIN 1e-5
 #define T_MAX 1e6
-#define MAX_BOUNCE 20
+#define MAX_BOUNCE 16
 
 #define LAMBERTIAN 0
 #define METAL 1
 #define DIELECTRIC 2
 
-#define SAMPLING 4
+#define SAMPLING 2
+
+float g_seed = 0.0;
 
 uint base_hash(uvec2 p) {
   p = 1103515245U * ((p >> 1U) ^ (p.yx));
@@ -27,8 +30,7 @@ uint base_hash(uvec2 p) {
   return h32 ^ (h32 >> 16);
 }
 
-float g_seed = frame_nb;
-
+/*
 float hash1(inout float seed) {
   uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
   return float(n) * (1.0 / float(0xffffffffU));
@@ -44,6 +46,19 @@ vec3 hash3(inout float seed) {
   uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
   uvec3 rz = uvec3(n, n * 16807U, n * 48271U);
   return vec3(rz & uvec3(0x7fffffffU)) / float(0x7fffffff);
+}
+*/
+
+lowp float hash1(inout float seed) {
+    return fract(sin(seed += 0.1)*43758.5453123);
+}
+
+lowp vec2 hash2(inout float seed) {
+    return fract(sin(vec2(seed+=0.1,seed+=0.1))*vec2(43758.5453123,22578.1459123));
+}
+
+lowp vec3 hash3(inout float seed) {
+    return fract(sin(vec3(seed+=0.1,seed+=0.1,seed+=0.1))*vec3(43758.5453123,22578.1459123,19642.3490423));
 }
 
 /*
@@ -196,20 +211,20 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.33));
   */
   sphere s3 =
-      new_sphere(vec3(0.0, 0.0, -1.0), 0.5,
+      new_sphere(vec3(0.0, 0.0, 0.0), 0.5,
                  new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
 
-  sphere s4 = new_sphere(vec3(1.6, 0.0, -1.3), 0.5,
-                         new_material(vec3(0.8, 0.6, 0.2), METAL, 0.2, 1.5));
+  sphere s4 = new_sphere(vec3(-1.6, 1.0, -2.3), 0.5,
+                         new_material(vec3(0.8, 0.6, 0.2), METAL, 0.05, 0.0));
   
-  sphere s5 = new_sphere(vec3(-1.0, 0.0, 2.0), 1.0,
-                         new_material(vec3(0.0), DIELECTRIC, 0.2, 1.5));
+  sphere s5 = new_sphere(vec3(-3.0, 0.0, 2.0), 1.0,
+                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.03));
   
-  sphere s6 = new_sphere(vec3(-1.0, 0.0, -1.0), 1.5,
-                         new_material(vec3(0.0), DIELECTRIC, 0.1, 3.5));
+  sphere s6 = new_sphere(vec3(2.0, 0.5, -1.0), 1.5,
+                         new_material(vec3(0.0), DIELECTRIC, 0.0, 0.95));
 
   sphere s7 =
-      new_sphere(vec3(-3.0, 1.0, 1.0), 1.5,
+      new_sphere(vec3(-5.0, 1.0, 0.0), 1.5,
                  new_material(vec3(0.8, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
 
   hit tmp_hit;
@@ -381,26 +396,20 @@ void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;
 
   // Init the seed. Make it different for each pixel + frame.
-  g_seed =
-      float(base_hash(floatBitsToUint(gl_FragCoord.xy))) / float(0xffffffffU) +
-      time;
+  g_seed = float(base_hash(floatBitsToUint(gl_FragCoord.xy))) / float(0xffffffffU) + time;
 
-  vec3 eye = vec3(2.0, 2.0, 2.0);
+  vec3 eye = vec3(8.0, 2.5, 4.0);
   vec3 lookat = vec3(0.0, 0.5, 0.0);
   float aspect = resolution.x / resolution.y;
   float focus_dist = distance(eye, lookat);
 
   vec3 col = vec3(0.0);
   for (int i = 0; i < SAMPLING; ++i) {
-    ray r = get_cam_ray(eye, lookat, vec3(0.0, 1.0, 0.0), 90.0, aspect, uv, 0.3, focus_dist);
+    ray r = get_cam_ray(eye, lookat, vec3(0.0, 1.0, 0.0), 90.0, aspect, uv, 0.7, focus_dist);
     col += color(r);
   }
 
   col /= float(SAMPLING);
 
-  vec3 previous = texture(backbuffer, uv).rgb * frame_nb;
-  previous += col;
-  previous /= (frame_nb + 1.0);
-
-  FragColor = vec4(previous, 1.0);
+  FragColor = vec4(col, 1.0);
 }
