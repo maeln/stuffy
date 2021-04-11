@@ -13,7 +13,7 @@ uniform sampler2D backbuffer;
 
 #define T_MIN 1e-5
 #define T_MAX 1e6
-#define MAX_BOUNCE 12
+#define MAX_BOUNCE 20
 
 #define LAMBERTIAN 0
 #define METAL 1

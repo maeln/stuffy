@@ -41,7 +41,7 @@ fn main() {
 
         let elapsed = time.elapsed();
         if !pause {
-            peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0);
+            peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0, true);
             window_context.swap_buffers().unwrap();
         }
         match event {
