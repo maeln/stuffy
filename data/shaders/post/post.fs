@@ -90,6 +90,7 @@ struct ray {
 
 struct material {
   vec3 albedo;
+  vec3 emission;
   float fuzz;
   float refraction;
   int type;
@@ -127,6 +128,7 @@ hit new_hit(float ht, vec3 point, vec3 norm, material m) {
 material new_material(vec3 a, int t, float f, float r) {
   material m;
   m.albedo = a;
+  m.emission = vec3(0.0);
   m.type = t;
   m.fuzz = f;
   m.refraction = r;
@@ -206,21 +208,23 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s1 =
       new_sphere(vec3(0.0, -100.5, -1.0), 100.0,
                  new_material(vec3(0.1, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0));
-  /*
-  sphere s2 = new_sphere(vec3(0.0, -100.5, -1.0), 100.5,
-                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.33));
-  */
-  sphere s3 =
-      new_sphere(vec3(0.0, 0.0, 0.0), 0.5,
-                 new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
-
-  sphere s4 = new_sphere(vec3(-1.6, 1.0, -2.3), 0.5,
-                         new_material(vec3(0.8, 0.6, 0.2), METAL, 0.05, 0.0));
   
-  sphere s5 = new_sphere(vec3(-3.0, 0.0, 2.0), 1.0,
+  sphere s2 = new_sphere(vec3(0.0, 5.0, 2.0), 0.4,
+                         new_material(vec3(0.0), LAMBERTIAN, 0.0, 0.0));
+  s2.m.emission = vec3(1.0)*30.0;
+
+  sphere s3 =
+      new_sphere(vec3(0.0, 0.3, 0.0), 0.5,
+                 new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
+  //s3.m.emission = vec3(0.1, 0.2, 0.5)*2.0;
+
+  sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
+                         new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
+  
+  sphere s5 = new_sphere(vec3(-3.0, 0.6, 2.0), 1.0,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.03));
   
-  sphere s6 = new_sphere(vec3(2.0, 0.5, -1.0), 1.5,
+  sphere s6 = new_sphere(vec3(2.0, 1.2, -1.0), 1.5,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 0.95));
 
   sphere s7 =
@@ -236,13 +240,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     got_hit = true;
     h = tmp_hit;
   }
-  /*
+  
   if (hit_sphere(s2, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
   }
-  */
 
   if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
@@ -280,7 +283,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 vec3 sky(in ray r) {
   vec3 unit_dir = normalize(r.direction);
   float t = 0.5 * (unit_dir.y + 1.0);
-  return (1.0 - t) * vec3(0.0) + t * vec3(0.8, 0.2, 0.3);
+  return ((1.0 - t) * vec3(0.7, 0.3, 0.3) + t * vec3(0.8, 0.2, 0.3)) * 0.2;
 }
 
 bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
@@ -347,6 +350,7 @@ bool material_scatter(in ray r, in hit h, out vec3 attenuation,
 }
 
 vec3 color(in ray r) {
+  vec3 ret = vec3(0.0);
   vec3 c = vec3(1.0);
   hit h;
 
@@ -355,18 +359,19 @@ vec3 color(in ray r) {
       ray scattered;
       vec3 attenuation;
       if (material_scatter(r, h, attenuation, scattered)) {
-        c *= attenuation;
+        ret += h.m.emission * c;
+        c *= attenuation * c;
         r = scattered;
       } else {
-        return vec3(0.0);
+        return h.m.emission;
       }
     } else {
-      c *= sky(r);
-      return c;
+      ret += sky(r) * c;
+      return ret;
     }
   }
 
-  return c;
+  return ret;
 }
 
 ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect,
@@ -398,7 +403,7 @@ void main() {
   // Init the seed. Make it different for each pixel + frame.
   g_seed = float(base_hash(floatBitsToUint(gl_FragCoord.xy))) / float(0xffffffffU) + time;
 
-  vec3 eye = vec3(8.0, 2.5, 4.0);
+  vec3 eye = vec3(7.0, 2.5, 5.0);
   vec3 lookat = vec3(0.0, 0.5, 0.0);
   float aspect = resolution.x / resolution.y;
   float focus_dist = distance(eye, lookat);
