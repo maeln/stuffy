@@ -1,4 +1,4 @@
-#version 430
+#version 410
 out vec4 FragColor;
 
 in vec2 TexCoords;
@@ -7,7 +7,7 @@ uniform float time;
 uniform vec2 resolution;
 uniform float frame_nb;
 
-layout(binding = 0) uniform sampler2D backbuffer;
+uniform sampler2D backbuffer;
 
 void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;

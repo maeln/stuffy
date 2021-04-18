@@ -25,8 +25,9 @@ fn main() {
 
     let dpi_ratio = window_context.window().scale_factor();
     let size = window_context.window().inner_size();
-    peglrs::init_gl(size.width as f64, size.height as f64, dpi_ratio);
-    peglrs::init_scene(size.width as f64, size.height as f64, dpi_ratio);
+    // We put the dpi at 1.0 because the size is already scaled.
+    peglrs::init_gl(size.width as f64, size.height as f64, 1.0);
+    peglrs::init_scene(size.width as f64, size.height as f64, 1.0);
 
     let mut mouse_init = false;
     let mut mouse_prev: (f64, f64) = (0.0, 0.0);
@@ -74,7 +75,8 @@ fn main() {
                 }
                 WindowEvent::Resized(size) => {
                     let dpi = window_context.window().scale_factor();
-                    peglrs::resize_window(size.width as f64, size.height as f64, dpi);
+                    // We put the dpi at 1.0 because the size is already scaled.
+                    peglrs::resize_window(size.width as f64, size.height as f64, 1.0);
                 }
                 WindowEvent::ScaleFactorChanged {
                     scale_factor,
