@@ -222,7 +222,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
   
   sphere s5 = new_sphere(vec3(-3.0, 0.6, 2.0), 1.0,
-                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.03));
+                         new_material(vec3(0.0), DIELECTRIC, 0.0, 1.06));
   
   sphere s6 = new_sphere(vec3(2.0, 1.2, -1.0), 1.5,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 0.95));
@@ -273,7 +273,8 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 vec3 sky(in ray r) {
   vec3 unit_dir = normalize(r.direction);
   float t = 0.5 * (unit_dir.y + 1.0);
-  return ((1.0 - t) * vec3(0.7, 0.3, 0.3) + t * vec3(0.8, 0.2, 0.3)) * 0.05;
+  //return ((1.0 - t) * vec3(0.95, 0.5, 0.5) + t * vec3(0.5, 0.5, 0.9)) * 0.5;
+  return vec3(0.00);
 }
 
 bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
@@ -339,7 +340,24 @@ bool material_scatter(in ray r, in hit h, out vec3 attenuation,
   }
 }
 
+vec3 ortho(vec3 v) {
+    return abs(v.x) > abs(v.z) ? vec3(-v.y, v.x, 0.0)  : vec3(0.0, -v.z, v.y);
+}
+
+vec3 getConeSample(vec3 dir, float extent) {
+        // Formula 34 in GI Compendium
+	dir = normalize(dir);
+	vec3 o1 = normalize(ortho(dir));
+	vec3 o2 = normalize(cross(dir, o1));
+	vec2 r =  hash2(g_seed);
+	r.x=r.x*2.*PI;
+	r.y=1.0-r.y*extent;
+	float oneminus = sqrt(1.0-r.y*r.y);
+	return cos(r.x)*oneminus*o1+sin(r.x)*oneminus*o2+r.y*dir;
+}
+
 vec3 color(in ray r) {
+  vec3 direct = vec3(0.0);
   vec3 ret = vec3(0.0);
   vec3 c = vec3(1.0);
   hit h;
@@ -349,11 +367,25 @@ vec3 color(in ray r) {
       ray scattered;
       vec3 attenuation;
       if (material_scatter(r, h, attenuation, scattered)) {
+        float russian = max(0.05, 3.0 - length(attenuation));
+        if(hash1(g_seed) > russian) {
+          break;
+        }
         ret += h.m.emission * c;
         c *= attenuation * c;
         r = scattered;
+
+        vec3 ldir = getConeSample(vec3(0.0, 5.0, 2.0) - h.p, 1e-5);
+        float llight = dot(h.normal, ldir);
+        ray r2 = new_ray(h.p, ldir);
+        hit h2;
+        ray s2;
+        vec3 c2;
+        if(llight > 0.0 && !material_scatter(r, h2, c2, s2)) {
+            direct += c * llight * 1e-5;
+        }
       } else {
-        return h.m.emission;
+        return direct + h.m.emission;
       }
     } else {
       ret += sky(r) * c;

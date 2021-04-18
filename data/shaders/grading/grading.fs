@@ -17,7 +17,7 @@ void main() {
   float filmic_ratio = 1.85 / 1.0;
 
   // color grading
-  col = pow(col, vec3(0.65, 0.85, 0.9));
+  col = pow(col, vec3(1.0, 1.2, 1.2));
 
   // exposure
   col *= exp2(0.8);
