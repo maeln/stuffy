@@ -1,89 +1,92 @@
 extern crate glutin;
 extern crate peglrs;
 
-use glutin::ContextTrait;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+
+use glutin::{
+    event::{ElementState, Event, MouseButton, VirtualKeyCode, WindowEvent},
+    event_loop::ControlFlow,
+};
 
 fn main() {
-    let mut events_loop = glutin::EventsLoop::new();
-    let window = glutin::WindowBuilder::new()
+    let events_loop = glutin::event_loop::EventLoop::new();
+    let window = glutin::window::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_dimensions(glutin::dpi::LogicalSize::new(600.0, 600.0))
-        .with_decorations(true)
-        .with_transparency(false);
+        .with_inner_size(glutin::dpi::LogicalSize::new(600.0, 600.0))
+        .with_decorations(true);
     let window_context = glutin::ContextBuilder::new()
         .build_windowed(window, &events_loop)
         .unwrap();
 
-    unsafe {
-        window_context.make_current().unwrap();
-    }
+    let window_context = unsafe { window_context.make_current().unwrap() };
 
     peglrs::load_gl_symbol();
     peglrs::print_gl_info();
 
-    let dpi_ratio = window_context.get_hidpi_factor();
-    let size = window_context.get_inner_size().unwrap();
-    peglrs::init_gl(size.width, size.height, dpi_ratio);
-    peglrs::init_scene(size.width, size.height, dpi_ratio);
+    let dpi_ratio = window_context.window().scale_factor();
+    let size = window_context.window().inner_size();
+    peglrs::init_gl(size.width as f64, size.height as f64, dpi_ratio);
+    peglrs::init_scene(size.width as f64, size.height as f64, dpi_ratio);
 
-    let mut running = true;
-    let mut time = Instant::now();
     let mut mouse_init = false;
     let mut mouse_prev: (f64, f64) = (0.0, 0.0);
-    let mut mouse_next: (f64, f64) = (0.0, 0.0);
     let mut mouse_pressed = false;
-    let mut loop_render = false;
     let mut pause = false;
 
-    events_loop.run_forever(|event| {
+    let counter = Instant::now();
+    events_loop.run(move |event, _, control_flow| {
         let mut stop = false;
 
-        let elapsed = time.elapsed();
         if !pause {
-            peglrs::display_loop(elapsed.as_millis() as f64 / 1000.0, 0, true);
+            peglrs::display_loop(counter.elapsed().as_millis() as f64 / 1000.0, 0, true);
             window_context.swap_buffers().unwrap();
         }
+
         match event {
-            glutin::Event::WindowEvent { event, .. } => match event {
-                glutin::WindowEvent::Focused(focused) => {
+            Event::WindowEvent { event, .. } => match event {
+                WindowEvent::Focused(focused) => {
                     pause = !focused;
                     if pause {
-                        window_context.set_title("Stuffy *PAUSED* (ESC)");
+                        println!("pause");
+                        window_context.window().set_title("Stuffy *PAUSED* (ESC)");
                     } else {
-                        window_context.set_title("Stuffy (ESC)");
+                        println!("unpause");
+                        window_context.window().set_title("Stuffy (ESC)");
                     }
                 }
-                glutin::WindowEvent::CloseRequested => {
+                WindowEvent::CloseRequested => {
                     peglrs::quit();
                     stop = true;
                 }
-                glutin::WindowEvent::KeyboardInput { input, .. } => {
+                WindowEvent::KeyboardInput { input, .. } => {
                     if let Some(vkey) = input.virtual_keycode {
                         match vkey {
-                            glutin::VirtualKeyCode::Escape => {
+                            VirtualKeyCode::Escape => {
                                 stop = true;
                             }
-                            glutin::VirtualKeyCode::P => {
+                            VirtualKeyCode::P => {
                                 peglrs::reset(0);
-                                time = Instant::now();
                                 window_context.swap_buffers().unwrap();
                             }
                             _ => {}
                         }
                     }
                 }
-                glutin::WindowEvent::Resized(size) => {
-                    let dpi = window_context.get_hidpi_factor();
-                    peglrs::resize_window(size.width, size.height, dpi);
-                    window_context.resize(size.to_physical(dpi));
+                WindowEvent::Resized(size) => {
+                    let dpi = window_context.window().scale_factor();
+                    peglrs::resize_window(size.width as f64, size.height as f64, dpi);
                 }
-                glutin::WindowEvent::HiDpiFactorChanged(dpi) => {
-                    let size = window_context.get_inner_size().unwrap();
-                    peglrs::resize_window(size.width, size.height, dpi);
-                    window_context.resize(size.to_physical(dpi));
+                WindowEvent::ScaleFactorChanged {
+                    scale_factor,
+                    new_inner_size,
+                } => {
+                    peglrs::resize_window(
+                        new_inner_size.width as f64,
+                        new_inner_size.height as f64,
+                        scale_factor,
+                    );
                 }
-                glutin::WindowEvent::CursorMoved { position, .. } => {
+                WindowEvent::CursorMoved { position, .. } => {
                     if mouse_pressed {
                         if !mouse_init {
                             mouse_prev = (position.x, position.y);
@@ -96,15 +99,12 @@ fn main() {
                         }
                     }
                 }
-                glutin::WindowEvent::MouseInput { state, button, .. } => {
-                    if state == glutin::ElementState::Pressed && button == glutin::MouseButton::Left
-                    {
+                WindowEvent::MouseInput { state, button, .. } => {
+                    if state == ElementState::Pressed && button == MouseButton::Left {
                         mouse_pressed = true;
                     }
 
-                    if state == glutin::ElementState::Released
-                        && button == glutin::MouseButton::Left
-                    {
+                    if state == ElementState::Released && button == MouseButton::Left {
                         mouse_pressed = false;
                         mouse_init = false;
                     }
@@ -115,8 +115,7 @@ fn main() {
         };
 
         if stop {
-            return glutin::ControlFlow::Break;
+            *control_flow = ControlFlow::Exit;
         }
-        return glutin::ControlFlow::Continue;
     });
 }

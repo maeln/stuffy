@@ -6,4 +6,4 @@ edition = "2018"
 
 [dependencies]
 peglrs = { path = "../peglrs" }
-glutin = "0.20"
+glutin = "0.26"

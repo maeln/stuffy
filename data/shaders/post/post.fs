@@ -13,14 +13,14 @@ uniform float frame_nb;
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
 #define T_MIN 1e-5
-#define T_MAX 1e6
-#define MAX_BOUNCE 16
+#define T_MAX 100.0
+#define MAX_BOUNCE 32
 
 #define LAMBERTIAN 0
 #define METAL 1
 #define DIELECTRIC 2
 
-#define SAMPLING 2
+#define SAMPLING 4
 
 float g_seed = 0.0;
 
@@ -211,12 +211,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   
   sphere s2 = new_sphere(vec3(0.0, 5.0, 2.0), 0.4,
                          new_material(vec3(0.0), LAMBERTIAN, 0.0, 0.0));
-  s2.m.emission = vec3(1.0)*30.0;
+  s2.m.emission = vec3(0.6, 0.2, 0.2)*30.0;
 
   sphere s3 =
       new_sphere(vec3(0.0, 0.3, 0.0), 0.5,
                  new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
-  //s3.m.emission = vec3(0.1, 0.2, 0.5)*2.0;
+  s3.m.emission = vec3(0.1, 0.2, 0.5)*20.0;
 
   sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
@@ -283,7 +283,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 vec3 sky(in ray r) {
   vec3 unit_dir = normalize(r.direction);
   float t = 0.5 * (unit_dir.y + 1.0);
-  return ((1.0 - t) * vec3(0.7, 0.3, 0.3) + t * vec3(0.8, 0.2, 0.3)) * 0.2;
+  return ((1.0 - t) * vec3(0.7, 0.3, 0.3) + t * vec3(0.8, 0.2, 0.3)) * 0.05;
 }
 
 bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
