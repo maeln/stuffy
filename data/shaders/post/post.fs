@@ -14,7 +14,7 @@ uniform float frame_nb;
 
 #define T_MIN 1e-5
 #define T_MAX 100.0
-#define MAX_BOUNCE 32
+#define MAX_BOUNCE 8
 
 #define LAMBERTIAN 0
 #define METAL 1
@@ -207,16 +207,16 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max,
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s1 =
       new_sphere(vec3(0.0, -100.5, -1.0), 100.0,
-                 new_material(vec3(0.1, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0));
+                 new_material(vec3(1.0), LAMBERTIAN, 0.0, 0.0));
   
   sphere s2 = new_sphere(vec3(0.0, 5.0, 2.0), 0.4,
                          new_material(vec3(0.0), LAMBERTIAN, 0.0, 0.0));
-  s2.m.emission = vec3(0.6, 0.2, 0.2)*30.0;
+  s2.m.emission = vec3(1.0)*30.0;
 
   sphere s3 =
       new_sphere(vec3(0.0, 0.3, 0.0), 0.5,
                  new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
-  s3.m.emission = vec3(0.1, 0.2, 0.5)*20.0;
+  // s3.m.emission = vec3(1.0)*20.0;
 
   sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
@@ -245,33 +245,23 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-
-  if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
+  } else if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-
-  if (hit_sphere(s4, r, t_min, closest, tmp_hit)) {
+  } else if (hit_sphere(s4, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-  
-  if (hit_sphere(s5, r, t_min, closest, tmp_hit)) {
+  } else if (hit_sphere(s5, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-  
-  if (hit_sphere(s6, r, t_min, closest, tmp_hit)) {
+  } else if (hit_sphere(s6, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-
-  if (hit_sphere(s7, r, t_min, closest, tmp_hit)) {
+  } else if (hit_sphere(s7, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;

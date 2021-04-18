@@ -232,7 +232,7 @@ pub fn display_loop(time: f64, fbo: u32, reset_on_reload: bool) {
 
             // Show scene
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
-
+            print!("\rsamples: {}", scene.frame_nb);
             scene.frame_nb += 1;
         }
     }
