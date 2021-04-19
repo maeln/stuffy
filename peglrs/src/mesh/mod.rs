@@ -129,7 +129,6 @@ impl Mesh {
 
         if self.vbo_uv.is_some() {
             unsafe {
-                println!("Binding uv at {}", idx);
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_uv.unwrap());
                 gl::EnableVertexAttribArray(idx);
                 gl::VertexAttribPointer(
@@ -198,7 +197,6 @@ impl Mesh {
 
         if self.vbo_uv.is_none() {
             if let Some(uv) = &mut self.uv {
-                println!("upload uv");
                 self.vbo_uv = gen_vbo();
                 unsafe {
                     gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_uv.unwrap());
