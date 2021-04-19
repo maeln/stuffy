@@ -7,11 +7,12 @@ uniform float time;
 uniform vec2 resolution;
 uniform float frame_nb;
 
-uniform sampler2D backbuffer;
+uniform sampler2D pathbuffer;
+uniform sampler2D denoiserbuffer;
 
 void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;
-  vec3 col = texture(backbuffer, uv).rgb / texture(backbuffer, uv).a;
+  vec3 col = texture(denoiserbuffer, uv).rgb / texture(denoiserbuffer, uv).a;
 
   float ratio = uv.x / uv.y;
   float filmic_ratio = 1.85 / 1.0;

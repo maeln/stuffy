@@ -86,7 +86,7 @@ impl Mesh {
 
     fn enable_attrib(&mut self) {
         self.bind_vao();
-
+        let mut idx = 0;
         if self.vbo_indices.is_some() {
             unsafe {
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_vertices.unwrap());
@@ -99,44 +99,48 @@ impl Mesh {
         }
 
         unsafe {
-            gl::EnableVertexAttribArray(0);
+            gl::EnableVertexAttribArray(idx);
             gl::VertexAttribPointer(
-                0,
+                idx,
                 self.v_components,
                 gl::FLOAT,
                 gl::FALSE,
                 0,
                 std::ptr::null_mut(),
             );
+            idx += 1;
         }
 
         if self.vbo_normals.is_some() {
             unsafe {
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_normals.unwrap());
-                gl::EnableVertexAttribArray(1);
+                gl::EnableVertexAttribArray(idx);
                 gl::VertexAttribPointer(
-                    1,
+                    idx,
                     self.n_components,
                     gl::FLOAT,
                     gl::FALSE,
                     0,
                     std::ptr::null_mut(),
                 );
+                idx += 1;
             }
         }
 
         if self.vbo_uv.is_some() {
             unsafe {
+                println!("Binding uv at {}", idx);
                 gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_uv.unwrap());
-                gl::EnableVertexAttribArray(2);
+                gl::EnableVertexAttribArray(idx);
                 gl::VertexAttribPointer(
-                    2,
+                    idx,
                     self.uv_components,
                     gl::FLOAT,
                     gl::FALSE,
                     0,
                     std::ptr::null_mut(),
                 );
+                idx += 1;
             }
         }
 
@@ -194,6 +198,7 @@ impl Mesh {
 
         if self.vbo_uv.is_none() {
             if let Some(uv) = &mut self.uv {
+                println!("upload uv");
                 self.vbo_uv = gen_vbo();
                 unsafe {
                     gl::BindBuffer(gl::ARRAY_BUFFER, self.vbo_uv.unwrap());

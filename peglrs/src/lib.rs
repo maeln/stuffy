@@ -52,6 +52,7 @@ pub fn resize_window(width: f64, height: f64, dpi_ratio: f64) {
             let mut new_fbs: Vec<Framebuffer> = Vec::new();
             for _ in &scene.framebuffers {
                 new_fbs.push(Framebuffer::new_xhdr(real_width as i32, real_height as i32));
+                new_fbs.push(Framebuffer::new_xhdr(real_width as i32, real_height as i32));
             }
             drop(&scene.framebuffers);
             scene.framebuffers = new_fbs;
@@ -110,7 +111,7 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
     let mut binding: HashMap<u32, Option<usize>> = HashMap::new();
 
     framebuffers.push(Framebuffer::new_xhdr(true_width as i32, true_height as i32));
-    // framebuffers.push(Framebuffer::new_ldr(true_width as i32, true_height as i32));
+    framebuffers.push(Framebuffer::new_xhdr(true_width as i32, true_height as i32));
 
     let mut shader_manager = ShaderManager::new();
     let path_tracer = shader_manager.load_program(&vec![
@@ -120,20 +121,20 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
     programs.push(path_tracer);
     binding.insert(path_tracer, Some(0));
 
+    let denoiser = shader_manager.load_program(&vec![
+        Path::new("data/shaders/tex/tex.vs"),
+        Path::new("data/shaders/tex/tex.fs"),
+    ]);
+    programs.push(denoiser);
+    binding.insert(denoiser, Some(1));
+
     let grading_program = shader_manager.load_program(&vec![
         Path::new("data/shaders/grading/grading.vs"),
         Path::new("data/shaders/grading/grading.fs"),
     ]);
     programs.push(grading_program);
     binding.insert(grading_program, None);
-    /*
-        let swap = shader_manager.load_program(&vec![
-            Path::new("data/shaders/tex/tex.vs"),
-            Path::new("data/shaders/tex/tex.fs"),
-        ]);
-        programs.push(swap);
-        binding.insert(swap, Some(0));
-    */
+
     let mut fs_plane = mesh::Mesh::fs_quad();
     fs_plane.ready_up();
 
@@ -219,6 +220,12 @@ pub fn display_loop(time: f64, fbo: u32, reset_on_reload: bool) {
                     prog.set_vec2("resolution", &scene.size);
                     prog.set_float("frame_nb", scene.frame_nb as f32);
                     prog.set_float("time", time as f32);
+                    if prog.uniforms_location.contains_key("pathbuffer") {
+                        prog.set_i32("pathbuffer", 0);
+                    }
+                    if prog.uniforms_location.contains_key("denoiserbuffer") {
+                        prog.set_i32("denoiserbuffer", 1);
+                    }
                 }
                 let mut i: u32 = 0;
                 for tex in &scene.framebuffers {
