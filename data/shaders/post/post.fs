@@ -474,8 +474,6 @@ void main() {
   hit h;
   hit_scene(r, T_MIN, T_MAX, h);
   float f_dist = sqrt(dot(in_eye-h.p, in_eye-h.p));
-
-
   vec3 col = vec3(0.0);
   for (int i = 0; i < SAMPLING; ++i) {
     ray r = get_cam_ray(90.0, aspect, uv, f_dist, in_aperture);

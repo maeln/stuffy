@@ -8,15 +8,11 @@ use glutin::{event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKey
 
 use glutin::event::MouseScrollDelta;
 
-fn dist(v1: Vector3<f32>, v2: Vector3<f32>) -> f32 {
-    return ((v2.x - v1.x).powf(2.0) + (v2.y - v1.y).powf(2.0) + (v2.z - v1.z).powf(2.0)).sqrt();
-}
-
 fn main() {
     let events_loop = glutin::event_loop::EventLoop::new();
     let window = glutin::window::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_inner_size(glutin::dpi::LogicalSize::new(600.0, 600.0))
+        .with_inner_size(glutin::dpi::LogicalSize::new(800.0, 600.0))
         .with_decorations(true);
     let window_context = glutin::ContextBuilder::new()
         .build_windowed(window, &events_loop)
@@ -27,7 +23,6 @@ fn main() {
     peglrs::load_gl_symbol();
     peglrs::print_gl_info();
 
-    let dpi_ratio = window_context.window().scale_factor();
     let size = window_context.window().inner_size();
     // We put the dpi at 1.0 because the size is already scaled.
     peglrs::init_gl(size.width as f64, size.height as f64, 1.0);
@@ -43,7 +38,7 @@ fn main() {
     let mut cam_direction: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
     let mut cam_up: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
     let mut focus_pos = Vector2::new(0.5, 0.5);
-    let mut aperture: f32 = 0.7;
+    let mut aperture: f32 = 0.1;
     peglrs::update_camera(
         cam_eye,
         cam_eye + cam_direction,
@@ -64,7 +59,8 @@ fn main() {
     let mut downward = false;
     let mouse_speed: f32 = 0.01;
     let keyboard_speed: f32 = 10.0;
-    let mut ctrl_pressed = false;
+
+    let mut zero_aperture = false;
 
     let mut mouse_pos = Vector2::new(0.0, 0.0);
 
@@ -110,6 +106,14 @@ fn main() {
                             println!("Cam:\neye: {:?}\ndirection: {:?}\n, up: {:?}\n, focus pos: {:?}\n, aperture: {}", 
                                     cam_eye, cam_direction, cam_up, focus_pos, aperture);
                         }
+                        (VirtualKeyCode::V, ElementState::Pressed) => {
+                            zero_aperture = true;
+                            cam_moved = true;
+                        }
+                        (VirtualKeyCode::V, ElementState::Released) => {
+                            zero_aperture = false;
+                            cam_moved = true;
+                        }
                         (VirtualKeyCode::A, ElementState::Pressed) => {
                             leftward = true;
                         }
@@ -149,11 +153,7 @@ fn main() {
                         _ => {}
                     }
                 }
-                WindowEvent::ModifiersChanged(state) => {
-                    ctrl_pressed = state.ctrl();
-                }
                 WindowEvent::Resized(size) => {
-                    let dpi = window_context.window().scale_factor();
                     // We put the dpi at 1.0 because the size is already scaled.
                     peglrs::resize_window(size.width as f64, size.height as f64, 1.0);
                 }
@@ -204,7 +204,7 @@ fn main() {
                     }
                 }
                 WindowEvent::MouseWheel { delta, .. } => {
-                    if let MouseScrollDelta::LineDelta(x, y) = delta {
+                    if let MouseScrollDelta::LineDelta(_, y) = delta {
                         mouse_ds = y;
                         mouse_moved = true;
                     }
@@ -268,6 +268,7 @@ fn main() {
             cam_moved = true;
         }
 
+        
         if cam_moved {
             iter = 0;
             peglrs::update_camera(
@@ -275,7 +276,7 @@ fn main() {
                 cam_eye + cam_direction,
                 cam_up,
                 focus_pos,
-                aperture,
+                if zero_aperture { 0.0 } else { aperture },
             );
             peglrs::reset(0);
             // window_context.swap_buffers().unwrap();
