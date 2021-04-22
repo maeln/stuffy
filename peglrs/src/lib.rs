@@ -9,8 +9,8 @@ mod scene;
 mod shaders;
 mod utils;
 
-use std::sync::Arc;
 use std::{collections::HashMap, path::Path};
+use std::{io::empty, sync::Arc};
 
 use camera::Camera;
 use frame::fbo::Framebuffer;
@@ -31,6 +31,11 @@ pub struct Scene {
     pub mesh: mesh::Mesh,
     pub size: Vector2<f32>,
     pub frame_nb: u32,
+    pub eye: Vector3<f32>,
+    pub target: Vector3<f32>,
+    pub up: Vector3<f32>,
+    pub focus_pos: Vector2<f32>,
+    pub aperture: f32,
 }
 
 static mut m_scene: Option<Scene> = None;
@@ -121,19 +126,19 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
     programs.push(path_tracer);
     binding.insert(path_tracer, Some(0));
 
-    let denoiser = shader_manager.load_program(&vec![
-        Path::new("data/shaders/tex/tex.vs"),
-        Path::new("data/shaders/tex/tex.fs"),
-    ]);
-    programs.push(denoiser);
-    binding.insert(denoiser, Some(1));
-
     let grading_program = shader_manager.load_program(&vec![
         Path::new("data/shaders/grading/grading.vs"),
         Path::new("data/shaders/grading/grading.fs"),
     ]);
     programs.push(grading_program);
-    binding.insert(grading_program, None);
+    binding.insert(grading_program, Some(1));
+
+    let denoiser = shader_manager.load_program(&vec![
+        Path::new("data/shaders/tex/tex.vs"),
+        Path::new("data/shaders/tex/tex.fs"),
+    ]);
+    programs.push(denoiser);
+    binding.insert(denoiser, None);
 
     let mut fs_plane = mesh::Mesh::fs_quad();
     fs_plane.ready_up();
@@ -150,12 +155,36 @@ pub fn init_scene(width: f64, height: f64, dpi_ratio: f64) {
                 y: true_height as f32,
             },
             frame_nb: 0,
+            eye: Vector3::new(0.0, 0.0, 0.0),
+            target: Vector3::new(0.0, 0.0, 0.0),
+            up: Vector3::new(0.0, 1.0, 0.0),
+            focus_pos: Vector2::new(0.0, 0.0),
+            aperture: 0.0,
         })
     }
 }
 
 #[no_mangle]
 pub fn handle_mouse(dx: f32, dy: f32, speed: f32) {}
+
+#[no_mangle]
+pub fn update_camera(
+    eye: Vector3<f32>,
+    target: Vector3<f32>,
+    up: Vector3<f32>,
+    focus_pos: Vector2<f32>,
+    aperture: f32,
+) {
+    unsafe {
+        if let Some(scene) = &mut m_scene {
+            scene.eye = eye;
+            scene.target = target;
+            scene.up = up;
+            scene.focus_pos = focus_pos;
+            scene.aperture = aperture;
+        }
+    }
+}
 
 #[no_mangle]
 pub fn quit() {
@@ -226,6 +255,21 @@ pub fn display_loop(time: f64, fbo: u32, reset_on_reload: bool) {
                     if prog.uniforms_location.contains_key("denoiserbuffer") {
                         prog.set_i32("denoiserbuffer", 1);
                     }
+                    if prog.uniforms_location.contains_key("in_eye") {
+                        prog.set_vec3("in_eye", &scene.eye);
+                    }
+                    if prog.uniforms_location.contains_key("in_target") {
+                        prog.set_vec3("in_target", &scene.target);
+                    }
+                    if prog.uniforms_location.contains_key("in_up") {
+                        prog.set_vec3("in_up", &scene.up);
+                    }
+                    if prog.uniforms_location.contains_key("in_focus_pos") {
+                        prog.set_vec2("in_focus_pos", &scene.focus_pos);
+                    }
+                    if prog.uniforms_location.contains_key("in_aperture") {
+                        prog.set_float("in_aperture", scene.aperture);
+                    }
                 }
                 let mut i: u32 = 0;
                 for tex in &scene.framebuffers {
@@ -239,7 +283,6 @@ pub fn display_loop(time: f64, fbo: u32, reset_on_reload: bool) {
 
             // Show scene
             gl::BindFramebuffer(gl::FRAMEBUFFER, fbo);
-            print!("\rsamples: {}", scene.frame_nb);
             scene.frame_nb += 1;
         }
     }

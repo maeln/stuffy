@@ -9,10 +9,16 @@ uniform float frame_nb;
 //uniform sampler2D backbuffer;
 //uniform sampler2D scenebuffer;
 
+uniform vec3 in_eye;
+uniform vec3 in_target;
+uniform vec3 in_up;
+uniform vec2 in_focus_pos;
+uniform float in_aperture;
+
 #define PI 3.141592
 #define saturate(x) (clamp((x), 0.0, 1.0))
 
-#define T_MIN 1e-5
+#define T_MIN 1e-6
 #define T_MAX 100.0
 #define MAX_BOUNCE 8
 
@@ -30,25 +36,6 @@ uint base_hash(uvec2 p) {
   return h32 ^ (h32 >> 16);
 }
 
-/*
-float hash1(inout float seed) {
-  uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
-  return float(n) * (1.0 / float(0xffffffffU));
-}
-
-vec2 hash2(inout float seed) {
-  uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
-  uvec2 rz = uvec2(n, n * 48271U);
-  return vec2(rz.xy & uvec2(0x7fffffffU)) / float(0x7fffffff);
-}
-
-vec3 hash3(inout float seed) {
-  uint n = base_hash(floatBitsToUint(vec2(seed += .1, seed += .1)));
-  uvec3 rz = uvec3(n, n * 16807U, n * 48271U);
-  return vec3(rz & uvec3(0x7fffffffU)) / float(0x7fffffff);
-}
-*/
-
 lowp float hash1(inout float seed) {
     return fract(sin(seed += 0.1)*43758.5453123);
 }
@@ -61,13 +48,6 @@ lowp vec3 hash3(inout float seed) {
     return fract(sin(vec3(seed+=0.1,seed+=0.1,seed+=0.1))*vec3(43758.5453123,22578.1459123,19642.3490423));
 }
 
-/*
-vec3 random_in_unit_sphere(in float seed) {
-        vec3 dir = vec3(rand(seed), rand(seed*2.0), rand(seed*3.0));
-        float len = rand(seed*seed);
-        return dir*len;
-}
-*/
 vec3 random_in_unit_sphere(inout float seed) {
   vec3 h = hash3(seed) * vec3(2., 6.28318530718, 1.) - vec3(1, 0, 0);
   float phi = h.y;
@@ -81,6 +61,20 @@ vec3 random_in_unit_disk() {
         if (dot(p,p) >= 1) continue;
         return p;
     }
+}
+
+vec3 random_in_hemisphere(vec3 normal) {
+  vec3 in_unit_sphere = random_in_unit_sphere(g_seed);
+  if(dot(in_unit_sphere, normal) > 0.0) {
+    return in_unit_sphere;
+  } else {
+    return - in_unit_sphere;
+  }
+}
+
+bool near_zero(vec3 v) {
+  vec3 z = vec3(1e-8);
+  return (v.x < z.x) && (v.y < z.y) && (v.z < z.z);
 }
 
 struct ray {
@@ -100,12 +94,19 @@ struct hit {
   float t;
   vec3 p;
   vec3 normal;
+  bool front_face;
   material m;
 };
 
 struct sphere {
   float radius;
   vec3 center;
+  material m;
+};
+
+struct rect {
+  vec4 pos;
+  float k;
   material m;
 };
 
@@ -175,38 +176,63 @@ bool modified_refract(const in vec3 v, const in vec3 n,
   }
 }
 
-bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max,
-                out hit h) {
+void set_face_normal(inout hit h, in ray r, in vec3 outward_normal) {
+  h.front_face = dot(r.direction, outward_normal) < 0.0;
+  h.normal = h.front_face ? outward_normal : -outward_normal;
+}
+
+bool hit_rect_xy(in rect m_rect,  in ray r, in float t_min, in float t_max, out hit h) {
+  float t = (m_rect.k - r.origin.z) / r.direction.z;
+  if(t < t_min || t > t_max) {
+    return false;
+  }
+
+  float x = r.origin.x + t*r.direction.x;
+  float y = r.origin.y + t*r.direction.y;
+  if(x < m_rect.pos.x || x > m_rect.pos.y || y < m_rect.pos.z || y > m_rect.pos.w) {
+    return false;
+  }
+
+  h.t = t;
+  vec3 outward_normal = vec3(0.0, 0.0, 1.0);
+  set_face_normal(h, r, outward_normal);
+  h.m = m_rect.m;
+  h.p = point_at(r, t);
+
+  return true;
+}
+
+bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h) {
   vec3 oc = r.origin - s.center;
   float a = dot(r.direction, r.direction);
-  float b = 2.0 * dot(oc, r.direction);
+  float half_b = dot(oc, r.direction);
   float c = dot(oc, oc) - s.radius * s.radius;
-  float discriminant = b * b - 4 * a * c;
-  if (discriminant > 0.0) {
-    float dist = (-b - sqrt(discriminant)) / (2.0 * a);
-    if (dist > t_min && t_max > dist) {
-      h.t = dist;
-      h.p = point_at(r, dist);
-      h.normal = (h.p - s.center) / s.radius;
-      h.m = s.m;
-      return true;
-    }
-
-    dist = (-b + sqrt(discriminant)) / (2.0 * a);
-    if (dist > t_min && t_max > dist) {
-      h.t = dist;
-      h.p = point_at(r, dist);
-      h.normal = (h.p - s.center) / s.radius;
-      h.m = s.m;
-      return true;
+  float discriminant = half_b * half_b - a * c;
+  if(discriminant < 0.0) {
+    return false;
+  }
+  
+  float sqrtd = sqrt(discriminant);
+  float root = (-half_b - sqrtd) / a;
+  if(root < t_min || t_max < root) {
+    root = (-half_b + sqrtd) / a;
+    if(root < t_min || t_max < root) {
+      return false;
     }
   }
-  return false;
+
+  h.t = root;
+  h.p = point_at(r, root);
+  vec3 outward_normal = (h.p - s.center) / s.radius;
+  set_face_normal(h, r, outward_normal);
+  h.m = s.m;
+
+  return true;
 }
 
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s1 =
-      new_sphere(vec3(0.0, -100.5, -1.0), 100.0,
+      new_sphere(vec3(0.0, -100.5, 0.0), 100.0,
                  new_material(vec3(1.0), LAMBERTIAN, 0.0, 0.0));
   
   sphere s2 = new_sphere(vec3(0.0, 5.0, 2.0), 0.4,
@@ -215,7 +241,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 
   sphere s3 =
       new_sphere(vec3(0.0, 0.3, 0.0), 0.5,
-                 new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
+                 new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
   // s3.m.emission = vec3(1.0)*20.0;
 
   sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
@@ -224,12 +250,17 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s5 = new_sphere(vec3(-3.0, 0.6, 2.0), 1.0,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.06));
   
-  sphere s6 = new_sphere(vec3(2.0, 1.2, -1.0), 1.5,
+  sphere s6 = new_sphere(vec3(2.0, 1.2, -1.0), -1.5,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 0.95));
 
   sphere s7 =
       new_sphere(vec3(-5.0, 1.0, 0.0), 1.5,
-                 new_material(vec3(0.8, 0.2, 0.5), LAMBERTIAN, 0.3, 0.0));
+                 new_material(vec3(0.8, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
+
+  rect r1;
+  r1.pos = vec4(3.0, 5.0, 1.0, 3.0);
+  r1.k = -2.0;
+  r1.m = new_material(vec3(0.2, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0);
 
   hit tmp_hit;
   float closest = t_max;
@@ -239,29 +270,38 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  }
-  
+  } 
   if (hit_sphere(s2, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  } else if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
+  }  
+  if (hit_sphere(s3, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  } else if (hit_sphere(s4, r, t_min, closest, tmp_hit)) {
+  }  
+  if (hit_sphere(s4, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  } else if (hit_sphere(s5, r, t_min, closest, tmp_hit)) {
+  }  
+  if (hit_sphere(s5, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  } else if (hit_sphere(s6, r, t_min, closest, tmp_hit)) {
+  }  
+  if (hit_sphere(s6, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
-  } else if (hit_sphere(s7, r, t_min, closest, tmp_hit)) {
+  }  
+  if (hit_sphere(s7, r, t_min, closest, tmp_hit)) {
+    closest = tmp_hit.t;
+    got_hit = true;
+    h = tmp_hit;
+  } 
+   if (hit_rect_xy(r1, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
@@ -273,14 +313,17 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
 vec3 sky(in ray r) {
   vec3 unit_dir = normalize(r.direction);
   float t = 0.5 * (unit_dir.y + 1.0);
-  //return ((1.0 - t) * vec3(0.95, 0.5, 0.5) + t * vec3(0.5, 0.5, 0.9)) * 0.5;
+  //return ((1.0 - t) * vec3(0.95, 0.5, 0.5) + t * vec3(0.8, 0.5, 0.6)) * 0.25;
   return vec3(0.00);
 }
 
 bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
                         out ray scattered) {
-  vec3 target = h.normal + random_in_unit_sphere(g_seed);
-  scattered = new_ray(h.p, target);
+  vec3 new_dir = h.normal + random_in_hemisphere(h.normal);
+  if(near_zero(new_dir)) {
+    new_dir = h.normal;
+  }
+  scattered = new_ray(h.p, new_dir);
   attenuation = h.m.albedo;
   return true;
 }
@@ -375,6 +418,7 @@ vec3 color(in ray r) {
         c *= attenuation * c;
         r = scattered;
 
+        
         vec3 ldir = getConeSample(vec3(0.0, 5.0, 2.0) - h.p, 1e-5);
         float llight = dot(h.normal, ldir);
         ray r2 = new_ray(h.p, ldir);
@@ -384,6 +428,7 @@ vec3 color(in ray r) {
         if(llight > 0.0 && !material_scatter(r, h2, c2, s2)) {
             direct += c * llight * 1e-5;
         }
+        
       } else {
         return direct + h.m.emission;
       }
@@ -396,18 +441,17 @@ vec3 color(in ray r) {
   return ret;
 }
 
-ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect,
-                vec2 uv, float aperture, float focus_dist) {
+ray get_cam_ray(float vfov, float aspect, vec2 uv, float focus_dist, float aperture) {
   float theta = vfov * PI / 180.0;
   float half_height = tan(theta / 2.0);
   float half_width = aspect * half_height;
-  vec3 w = normalize(eye - lookat);
-  vec3 u = normalize(cross(up, w));
+  vec3 w = normalize(in_eye - in_target);
+  vec3 u = normalize(cross(in_up, w));
   vec3 v = cross(w, u);
 
   vec3 horizontal = focus_dist * half_width * u;
   vec3 vertical = focus_dist * half_height * v;
-  vec3 lower_left_corner = eye - horizontal/2.0 - vertical/2.0 - focus_dist*w;
+  vec3 lower_left_corner = in_eye - horizontal/2.0 - vertical/2.0 - focus_dist*w;
 
   vec2 jitter = hash2(g_seed) / resolution.xy;
   float lens_radius = aperture / 2.0;
@@ -415,24 +459,26 @@ ray get_cam_ray(vec3 eye, vec3 lookat, vec3 up, float vfov, float aspect,
   vec3 rd = lens_radius * random_in_unit_disk();
   vec3 offset = u * rd.x + v * rd.y;
 
-  return new_ray(eye + offset, 
-                  lower_left_corner + (uv.x + jitter.x) * horizontal + (uv.y + jitter.y) * vertical - eye - offset);
+  return new_ray(in_eye + offset, lower_left_corner + (uv.x + jitter.x) * horizontal + (uv.y + jitter.y) * vertical - in_eye - offset);
 }
 
 void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;
+  float aspect = resolution.x / resolution.y;
 
   // Init the seed. Make it different for each pixel + frame.
   g_seed = float(base_hash(floatBitsToUint(gl_FragCoord.xy))) / float(0xffffffffU) + time;
 
-  vec3 eye = vec3(7.0, 2.5, 5.0);
-  vec3 lookat = vec3(0.0, 0.5, 0.0);
-  float aspect = resolution.x / resolution.y;
-  float focus_dist = distance(eye, lookat);
+  // dist to target
+  ray r = get_cam_ray(90.0, aspect, in_focus_pos, 1.0, 0.0);
+  hit h;
+  hit_scene(r, T_MIN, T_MAX, h);
+  float f_dist = sqrt(dot(in_eye-h.p, in_eye-h.p));
+
 
   vec3 col = vec3(0.0);
   for (int i = 0; i < SAMPLING; ++i) {
-    ray r = get_cam_ray(eye, lookat, vec3(0.0, 1.0, 0.0), 90.0, aspect, uv, 0.7, focus_dist);
+    ray r = get_cam_ray(90.0, aspect, uv, f_dist, in_aperture);
     col += color(r);
   }
 

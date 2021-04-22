@@ -429,6 +429,7 @@ dependencies = [
 name = "glutin_backend"
 version = "0.1.0"
 dependencies = [
+ "cgmath",
  "glutin",
  "peglrs",
 ]
