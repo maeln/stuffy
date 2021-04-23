@@ -25,8 +25,12 @@ uniform float in_aperture;
 #define LAMBERTIAN 0
 #define METAL 1
 #define DIELECTRIC 2
+#define VOLUME 3
+#define EMISSIVE 99
 
 #define SAMPLING 4
+
+#define L_POS vec3(0.0, 5.0, 0.0)
 
 float g_seed = 0.0;
 
@@ -230,19 +234,57 @@ bool hit_sphere(in sphere s, in ray r, in float t_min, in float t_max, out hit h
   return true;
 }
 
+bool volume_sphere_hit(in sphere m_sphere, in ray r, in float t_min, in float t_max, out hit h, float neg_inv_density) {
+  hit r1;
+  hit r2;
+  if(!hit_sphere(m_sphere, r, -1e6, 1e6, r1)) {
+    return false;
+  }
+  if(!hit_sphere(m_sphere, r, r1.t+0.001, 1e6, r2)) {
+    return false;
+  }
+
+  if(r1.t < t_min) {
+    r1.t = t_min;
+  }
+  if(r2.t > t_max) {
+    r2.t = t_max;
+  }
+
+  if(r1.t >= r2.t) {
+    return false;
+  }
+
+  if(r1.t < 0) {
+    r1.t = 0;
+  }
+
+  float len = length(r.direction);
+  float dist_in_bound = (r2.t - r1.t)*len;
+  float hit_dist = -(1.0/neg_inv_density) * log(hash1(g_seed));
+  if(hit_dist > dist_in_bound) {
+    return false;
+  }
+
+  h.t = r1.t + hit_dist / len;
+  h.p = point_at(r, h.t);
+  h.normal = vec3(1.0, 0.0, 0.0);
+  h.front_face = true;
+  h.m = m_sphere.m;
+
+  return true;
+}
+
 bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s1 =
       new_sphere(vec3(0.0, -100.5, 0.0), 100.0,
                  new_material(vec3(1.0), LAMBERTIAN, 0.0, 0.0));
   
-  sphere s2 = new_sphere(vec3(0.0, 5.0, 2.0), 0.4,
-                         new_material(vec3(0.0), LAMBERTIAN, 0.0, 0.0));
-  s2.m.emission = vec3(1.0)*30.0;
+  sphere s2 = new_sphere(L_POS, 1.0, new_material(vec3(0.0), EMISSIVE, 0.0, 0.0));
+  s2.m.emission = vec3(5.0);
 
-  sphere s3 =
-      new_sphere(vec3(0.0, 0.3, 0.0), 0.5,
-                 new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
-  // s3.m.emission = vec3(1.0)*20.0;
+  sphere s3 = new_sphere(vec3(-0.3, 1.3, -1.3), 1.0, new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
+  // s3.m.emission = vec3(10.0);
 
   sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
                          new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
@@ -256,6 +298,8 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s7 =
       new_sphere(vec3(-5.0, 1.0, 0.0), 1.5,
                  new_material(vec3(0.8, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
+  
+  sphere s8 = new_sphere(vec3(0.0, 0.0, 0.0), 100.5, new_material(vec3(1.0), VOLUME, 0.0, 0.0));
 
   rect r1;
   r1.pos = vec4(3.0, 5.0, 1.0, 3.0);
@@ -266,6 +310,11 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   float closest = t_max;
   bool got_hit = false;
 
+  if(volume_sphere_hit(s8, r, t_min, closest, tmp_hit, 0.025)) {
+    closest = tmp_hit.t;
+    got_hit = true;
+    h = tmp_hit;
+  }
   if (hit_sphere(s1, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
@@ -301,11 +350,12 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
     got_hit = true;
     h = tmp_hit;
   } 
-   if (hit_rect_xy(r1, r, t_min, closest, tmp_hit)) {
+  if (hit_rect_xy(r1, r, t_min, closest, tmp_hit)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
   }
+  
 
   return got_hit;
 }
@@ -317,8 +367,7 @@ vec3 sky(in ray r) {
   return vec3(0.00);
 }
 
-bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
-                        out ray scattered) {
+bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation, out ray scattered) {
   vec3 new_dir = h.normal + random_in_hemisphere(h.normal);
   if(near_zero(new_dir)) {
     new_dir = h.normal;
@@ -328,8 +377,7 @@ bool lambertian_scatter(in ray r, in hit h, out vec3 attenuation,
   return true;
 }
 
-bool metal_scatter(in ray r, in hit h, out vec3 attenuation,
-                   inout ray scattered) {
+bool metal_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
   vec3 reflected = reflect(normalize(r.direction), h.normal);
   scattered =
       new_ray(h.p, reflected + h.m.fuzz * random_in_unit_sphere(g_seed));
@@ -337,8 +385,7 @@ bool metal_scatter(in ray r, in hit h, out vec3 attenuation,
   return (dot(scattered.direction, h.normal) > 0.0);
 }
 
-bool dielectric_scatter(in ray r, in hit h, out vec3 attenuation,
-                        inout ray scattered) {
+bool dielectric_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
   vec3 outward_normal, refracted;
   vec3 reflected = reflect(r.direction, h.normal);
   float ni_over_nt, reflect_prob, cosine;
@@ -370,6 +417,12 @@ bool dielectric_scatter(in ray r, in hit h, out vec3 attenuation,
   return true;
 }
 
+bool isotropic_scatter(in ray r, in hit h, out vec3 attenuation, inout ray scattered) {
+  scattered = ray(h.p, random_in_unit_sphere(g_seed));
+  attenuation = h.m.albedo;
+  return true;
+}
+
 bool material_scatter(in ray r, in hit h, out vec3 attenuation,
                       inout ray scattered) {
   if (h.m.type == LAMBERTIAN) {
@@ -378,9 +431,10 @@ bool material_scatter(in ray r, in hit h, out vec3 attenuation,
     return metal_scatter(r, h, attenuation, scattered);
   } else if (h.m.type == DIELECTRIC) {
     return dielectric_scatter(r, h, attenuation, scattered);
-  } else {
-    return false;
+  } else if (h.m.type == VOLUME) {
+    return isotropic_scatter(r, h, attenuation, scattered);
   }
+  return false;
 }
 
 vec3 ortho(vec3 v) {
@@ -400,45 +454,45 @@ vec3 getConeSample(vec3 dir, float extent) {
 }
 
 vec3 color(in ray r) {
-  vec3 direct = vec3(0.0);
-  vec3 ret = vec3(0.0);
-  vec3 c = vec3(1.0);
+  vec3 col = vec3(0.0);
+  vec3 emitted = vec3(0.0);
   hit h;
 
   for (int i = 0; i < MAX_BOUNCE; ++i) {
     if (hit_scene(r, T_MIN, T_MAX, h)) {
       ray scattered;
       vec3 attenuation;
+      vec3 emit = h.m.emission;
+      emitted += i == 0 ? emit : col * emit;
+
       if (material_scatter(r, h, attenuation, scattered)) {
         float russian = max(0.05, 3.0 - length(attenuation));
         if(hash1(g_seed) > russian) {
           break;
         }
-        ret += h.m.emission * c;
-        c *= attenuation * c;
+        
+        col = i == 0 ? attenuation : col * attenuation;
         r = scattered;
 
         
-        vec3 ldir = getConeSample(vec3(0.0, 5.0, 2.0) - h.p, 1e-5);
+        vec3 ldir = getConeSample(L_POS-h.p, 1e-5);
         float llight = dot(h.normal, ldir);
         ray r2 = new_ray(h.p, ldir);
         hit h2;
         ray s2;
         vec3 c2;
         if(llight > 0.0 && !material_scatter(r, h2, c2, s2)) {
-            direct += c * llight * 1e-5;
+            col = col * llight * 1e-5;
         }
-        
       } else {
-        return direct + h.m.emission;
+        return emitted;
       }
     } else {
-      ret += sky(r) * c;
-      return ret;
+      return emitted;
     }
   }
 
-  return ret;
+  return emitted;
 }
 
 ray get_cam_ray(float vfov, float aspect, vec2 uv, float focus_dist, float aperture) {
