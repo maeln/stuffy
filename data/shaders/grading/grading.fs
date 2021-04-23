@@ -12,10 +12,9 @@ uniform sampler2D pathbuffer;
 
 // Stole from FMS_Cat : https://www.shadertoy.com/view/ss23DD
 
-const vec4 LIFT = vec4( 0.02, -0.01, 0.09, 0.0 );
-const vec4 GAMMA = vec4( -0.05, 0.02, -0.08, 0.0 );
-const vec4 GAIN = vec4( 1.06, 0.96, 1.10, 1.0 );
-
+const vec4 LIFT = vec4( 0.02, 0.01, 0.01, 0.01 );
+const vec4 GAMMA = vec4( 0.03, -0.01, 0.02, 0.00 );
+const vec4 GAIN = vec4( 1.35, 1.21, 1.12, 1.24 );
 const vec3 LUMA = vec3( 0.2126, 0.7152, 0.0722 );
 
 vec3 liftGammaGain( vec3 rgb, vec4 lift, vec4 gamma, vec4 gain ) {
@@ -55,5 +54,5 @@ void main() {
   //vec3 x = max(vec3(0.0), col - vec3(0.004));
   //vec3 retColor = (x*(6.2*x+.5))/(x*(6.2*x+1.7)+0.06);
 
-    FragColor = vec4(col, 1.0);
+  FragColor = vec4(col, 1.0);
 }
