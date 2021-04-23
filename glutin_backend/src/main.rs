@@ -34,11 +34,23 @@ fn main() {
     let mut pause = false;
     let mut iter: usize = 0;
 
-    let mut cam_eye: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
-    let mut cam_direction: Vector3<f32> = Vector3::new(1.0, 0.0, 0.0);
-    let mut cam_up: Vector3<f32> = Vector3::new(0.0, 1.0, 0.0);
-    let mut focus_pos = Vector2::new(0.5, 0.5);
-    let mut aperture: f32 = 0.1;
+    let mut hangle: f32 = -2.2;
+    let mut vangle: f32 = 0.03;
+    let mut dt: f32 = 0.0;
+
+    let mut cam_eye: Vector3<f32> = Vector3::new(3.1415, 0.906, 2.308);
+    let mut focus_pos = Vector2::new(0.48875, 0.6767);
+    let mut aperture: f32 = 0.4;
+    let mut cam_direction = Vector3::new(
+        vangle.cos() * hangle.sin(), 
+        vangle.sin(), 
+        vangle.cos() * hangle.cos());
+    let right = Vector3::new(
+        (hangle - 3.1415 / 2.0).sin(), 
+        0.0, 
+        (hangle - 3.1415 / 2.0).cos());
+    let mut cam_up = right.cross(cam_direction);
+    
     peglrs::update_camera(
         cam_eye,
         cam_eye + cam_direction,
@@ -47,9 +59,6 @@ fn main() {
         aperture,
     );
 
-    let mut hangle: f32 = 0.0;
-    let mut vangle: f32 = 0.0;
-    let mut dt: f32 = 0.0;
 
     let mut forward = false;
     let mut backward = false;
@@ -59,9 +68,7 @@ fn main() {
     let mut downward = false;
     let mouse_speed: f32 = 0.01;
     let keyboard_speed: f32 = 10.0;
-
     let mut zero_aperture = false;
-
     let mut mouse_pos = Vector2::new(0.0, 0.0);
 
     let counter = Instant::now();
@@ -103,8 +110,8 @@ fn main() {
                             println!("samples: {}", iter);
                         }
                         (VirtualKeyCode::I, ElementState::Pressed) => {
-                            println!("Cam:\neye: {:?}\ndirection: {:?}\n, up: {:?}\n, focus pos: {:?}\n, aperture: {}", 
-                                    cam_eye, cam_direction, cam_up, focus_pos, aperture);
+                            println!("Cam:\neye: {:?}\ndirection: {:?}\n, up: {:?}\n focus pos: {:?}\n, aperture: {}\n hangle: {}\n vangle: {}", 
+                                    cam_eye, cam_direction, cam_up, focus_pos, aperture, hangle, vangle);
                         }
                         (VirtualKeyCode::V, ElementState::Pressed) => {
                             zero_aperture = true;
@@ -251,7 +258,7 @@ fn main() {
         }
 
         if mouse_moved {
-            aperture += mouse_ds / 20.0;
+            aperture += mouse_ds / 50.0;
             
             hangle += mouse_dx * mouse_speed;
             vangle += mouse_dy * mouse_speed;
