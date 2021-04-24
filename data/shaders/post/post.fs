@@ -454,6 +454,13 @@ vec3 getConeSample(vec3 dir, float extent) {
 	return cos(r.x)*oneminus*o1+sin(r.x)*oneminus*o2+r.y*dir;
 }
 
+vec3 emitted_light(hit h) {
+  if(h.front_face){
+    return h.m.emission;
+  }
+  return vec3(0.0);
+}
+
 vec3 color(in ray r) {
   vec3 col = vec3(0.0);
   vec3 emitted = vec3(0.0);
@@ -463,14 +470,14 @@ vec3 color(in ray r) {
     if (hit_scene(r, T_MIN, T_MAX, h)) {
       ray scattered;
       vec3 attenuation;
-      vec3 emit = h.m.emission;
+      vec3 emit = emitted_light(h);
       emitted += i == 0 ? emit : col * emit;
 
       if (material_scatter(r, h, attenuation, scattered)) {
-        float russian = max(0.05, 3.0 - length(attenuation));
-        if(hash1(g_seed) > russian) {
-          break;
-        }
+        //float russian = max(0.05, 3.0 - length(attenuation));
+        //if(hash1(g_seed) > russian) {
+        //  break;
+        //}
         
         col = i == 0 ? attenuation : col * attenuation;
         r = scattered;

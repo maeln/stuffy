@@ -40,7 +40,7 @@ fn main() {
 
     let mut cam_eye: Vector3<f32> = Vector3::new(3.1415, 0.906, 2.308);
     let mut focus_pos = Vector2::new(0.57, 0.44833332);
-    let mut aperture: f32 = 0.4;
+    let mut aperture: f32 = 0.05;
     let mut cam_direction = Vector3::new(
         vangle.cos() * hangle.sin(), 
         vangle.sin(), 
