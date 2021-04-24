@@ -30,7 +30,7 @@ uniform float in_aperture;
 
 #define SAMPLING 4
 
-#define L_POS vec3(0.0, 5.0, 0.0)
+#define L_POS vec3(0.0, 5.0, 3.0)
 
 float g_seed = 0.0;
 
@@ -40,15 +40,15 @@ uint base_hash(uvec2 p) {
   return h32 ^ (h32 >> 16);
 }
 
-lowp float hash1(inout float seed) {
+float hash1(inout float seed) {
     return fract(sin(seed += 0.1)*43758.5453123);
 }
 
-lowp vec2 hash2(inout float seed) {
+vec2 hash2(inout float seed) {
     return fract(sin(vec2(seed+=0.1,seed+=0.1))*vec2(43758.5453123,22578.1459123));
 }
 
-lowp vec3 hash3(inout float seed) {
+vec3 hash3(inout float seed) {
     return fract(sin(vec3(seed+=0.1,seed+=0.1,seed+=0.1))*vec3(43758.5453123,22578.1459123,19642.3490423));
 }
 
@@ -302,9 +302,10 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s8 = new_sphere(vec3(0.0, 0.0, 0.0), 100.5, new_material(vec3(1.0), VOLUME, 0.0, 0.0));
 
   rect r1;
-  r1.pos = vec4(3.0, 5.0, 1.0, 3.0);
-  r1.k = -2.0;
-  r1.m = new_material(vec3(0.2, 0.8, 0.3), LAMBERTIAN, 0.0, 0.0);
+  r1.pos = vec4(-2.0, 2.0, -1.0, 3.0);
+  r1.k = -5.0;
+  r1.m = new_material(vec3(0.0), EMISSIVE, 0.0, 0.0);
+  r1.m.emission = vec3(0.8, 0.2, 0.4)*3.0;
 
   hit tmp_hit;
   float closest = t_max;
@@ -474,7 +475,7 @@ vec3 color(in ray r) {
         col = i == 0 ? attenuation : col * attenuation;
         r = scattered;
 
-        
+        /*
         vec3 ldir = getConeSample(L_POS-h.p, 1e-5);
         float llight = dot(h.normal, ldir);
         ray r2 = new_ray(h.p, ldir);
@@ -484,6 +485,7 @@ vec3 color(in ray r) {
         if(llight > 0.0 && !material_scatter(r, h2, c2, s2)) {
             col = col * llight * 1e-5;
         }
+        */
       } else {
         return emitted;
       }

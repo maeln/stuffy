@@ -12,9 +12,9 @@ fn main() {
     let events_loop = glutin::event_loop::EventLoop::new();
     let window = glutin::window::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_inner_size(glutin::dpi::LogicalSize::new(800.0, 600.0))
-        .with_decorations(true);
+        .with_inner_size(glutin::dpi::LogicalSize::new(800.0, 600.0));
     let window_context = glutin::ContextBuilder::new()
+//        .with_vsync(true)
         .build_windowed(window, &events_loop)
         .unwrap();
 
@@ -101,13 +101,19 @@ fn main() {
                         (VirtualKeyCode::Escape, ElementState::Pressed) => {
                             stop = true;
                         }
-                        (VirtualKeyCode::P, ElementState::Pressed) => {
+                        (VirtualKeyCode::R, ElementState::Pressed) => {
                             iter = 0;
                             peglrs::reset(0);
                             window_context.swap_buffers().unwrap();
                         }
+                        (VirtualKeyCode::P, ElementState::Pressed) => {
+                            pause = true;
+                        }
+                        (VirtualKeyCode::P, ElementState::Released) => {
+                            pause = false;
+                        }
                         (VirtualKeyCode::O, ElementState::Pressed) => {
-                            println!("samples: {}", iter);
+                            println!("samples: {}, last frame rendered in {}s", iter, dt);
                         }
                         (VirtualKeyCode::I, ElementState::Pressed) => {
                             println!("Cam:\neye: {:?}\ndirection: {:?}\n, up: {:?}\n focus pos: {:?}\n, aperture: {}\n hangle: {}\n vangle: {}", 
