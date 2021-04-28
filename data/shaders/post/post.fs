@@ -311,7 +311,7 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   float closest = t_max;
   bool got_hit = false;
 
-  if(volume_sphere_hit(s8, r, t_min, closest, tmp_hit, 0.025)) {
+  if(volume_sphere_hit(s8, r, t_min, closest, tmp_hit, 0.06)) {
     closest = tmp_hit.t;
     got_hit = true;
     h = tmp_hit;
