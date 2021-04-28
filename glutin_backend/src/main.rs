@@ -1,7 +1,7 @@
 extern crate glutin;
 extern crate peglrs;
 
-use std::time::Instant;
+use std::{ops::Add, time::{Duration, Instant}};
 
 use cgmath::{InnerSpace, Vector2, Vector3};
 use glutin::{event::{ElementState, Event, KeyboardInput, MouseButton, VirtualKeyCode, WindowEvent}, event_loop::ControlFlow};
@@ -12,7 +12,7 @@ fn main() {
     let events_loop = glutin::event_loop::EventLoop::new();
     let window = glutin::window::WindowBuilder::new()
         .with_title("Stuffy (ESC)")
-        .with_inner_size(glutin::dpi::LogicalSize::new(800.0, 600.0));
+        .with_inner_size(glutin::dpi::LogicalSize::new(1280.0, 700.0));
     let window_context = glutin::ContextBuilder::new()
 //        .with_vsync(true)
         .build_windowed(window, &events_loop)
@@ -70,6 +70,9 @@ fn main() {
     let keyboard_speed: f32 = 10.0;
     let mut zero_aperture = false;
     let mut mouse_pos = Vector2::new(0.0, 0.0);
+
+    let mut resize_triggered = false;
+    let mut trigger_resize_timer = Instant::now().add(Duration::from_millis(200));
 
     let counter = Instant::now();
     events_loop.run(move |event, _, control_flow| {
@@ -167,8 +170,9 @@ fn main() {
                     }
                 }
                 WindowEvent::Resized(size) => {
-                    // We put the dpi at 1.0 because the size is already scaled.
-                    peglrs::resize_window(size.width as f64, size.height as f64, 1.0);
+                    resize_triggered = true;
+                    trigger_resize_timer = Instant::now().add(Duration::from_millis(200));
+
                 }
                 WindowEvent::ScaleFactorChanged {
                     scale_factor,
@@ -224,8 +228,26 @@ fn main() {
                 }
                 _ => (),
             },
+            Event::MainEventsCleared => {
+                if !pause {
+                    peglrs::display_loop(counter.elapsed().as_millis() as f64 / 1000.0, 0, true);
+                    window_context.swap_buffers().unwrap();
+                    iter += 1;
+                }
+            }
             _ => (),
         };
+
+        if stop {
+            *control_flow = ControlFlow::Exit;
+        }
+
+        if resize_triggered && Instant::now() > trigger_resize_timer {
+            // We put the dpi at 1.0 because the size is already scaled.
+            let new_size = window_context.window().inner_size();
+            peglrs::resize_window(new_size.width as f64, new_size.height as f64, 1.0);
+            resize_triggered = false;
+        }
 
         if leftward {
             let mut left = cam_up.cross(cam_direction);
@@ -292,18 +314,8 @@ fn main() {
                 if zero_aperture { 0.0 } else { aperture },
             );
             peglrs::reset(0);
-            // window_context.swap_buffers().unwrap();
         }
 
-        if stop {
-            *control_flow = ControlFlow::Exit;
-        }
-
-        if !pause {
-            peglrs::display_loop(counter.elapsed().as_millis() as f64 / 1000.0, 0, true);
-            window_context.swap_buffers().unwrap();
-            iter += 1;
-        }
         let ms = Instant::now().duration_since(loop_start).as_millis();
         dt = ms as f32 / 1000.0;
     });
