@@ -283,11 +283,11 @@ bool hit_scene(in ray r, in float t_min, in float t_max, out hit h) {
   sphere s2 = new_sphere(L_POS, 1.0, new_material(vec3(0.0), EMISSIVE, 0.0, 0.0));
   s2.m.emission = vec3(5.0);
 
-  sphere s3 = new_sphere(vec3(-0.3, 1.3, -1.3), 1.0, new_material(vec3(0.1, 0.2, 0.5), LAMBERTIAN, 0.0, 0.0));
+  sphere s3 = new_sphere(vec3(-0.3, 1.3, -1.3), 1.0, new_material(vec3(0.1, 0.2, 0.5), METAL, 0.05, 0.0));
   // s3.m.emission = vec3(10.0);
 
-  sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 0.5,
-                         new_material(vec3(0.8, 0.6, 0.2), METAL, 0.00, 0.0));
+  sphere s4 = new_sphere(vec3(2.0, 1.0, -1.0), 1.0,
+                         new_material(vec3(0.8, 0.6, 0.2), DIELECTRIC, 0.00, 1.2));
   
   sphere s5 = new_sphere(vec3(-3.0, 0.6, 2.0), 1.0,
                          new_material(vec3(0.0), DIELECTRIC, 0.0, 1.06));

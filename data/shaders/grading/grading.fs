@@ -64,18 +64,13 @@ mat4 contrastMatrix( float contrast )
 mat4 saturationMatrix( float saturation )
 {
     vec3 luminance = vec3( 0.3086, 0.6094, 0.0820 );
-    
     float oneMinusSat = 1.0 - saturation;
-    
     vec3 red = vec3( luminance.x * oneMinusSat );
     red+= vec3( saturation, 0, 0 );
-    
     vec3 green = vec3( luminance.y * oneMinusSat );
     green += vec3( 0, saturation, 0 );
-    
     vec3 blue = vec3( luminance.z * oneMinusSat );
     blue += vec3( 0, 0, saturation );
-    
     return mat4( red,     0,
                  green,   0,
                  blue,    0,
@@ -100,12 +95,13 @@ void main() {
   vec2 uv = gl_FragCoord.xy / resolution.xy;
   vec4 col = vec4(texture(pathbuffer, uv).rgb / texture(pathbuffer, uv).a, 1.0);
 
+  // color grading
+  col.rgb = liftGammaGain(col.rgb, LIFT, GAMMA, GAIN);
+  col.rgba = contrastMatrix(1.1) * col;
+
   // Tone mapping by Jim Hejl and Richard Burgess-Dawson
   vec3 x = max(vec3(0.0), col.rgb - vec3(0.004));
   vec3 retColor = (x*(6.2*x+.5))/(x*(6.2*x+1.7)+0.06);
-
-  // color grading
-  col.rgb = liftGammaGain(col.rgb, LIFT, GAMMA, GAIN);
 
   FragColor = col;
 }
