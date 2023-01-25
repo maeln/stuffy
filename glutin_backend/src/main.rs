@@ -34,13 +34,13 @@ fn main() {
     let mut pause = false;
     let mut iter: usize = 0;
 
-    let mut hangle: f32 = -2.2;
-    let mut vangle: f32 = 0.03;
+    let mut hangle: f32 = -2.770002;
+    let mut vangle: f32 = -0.0999;
     let mut dt: f32 = 0.0;
 
-    let mut cam_eye: Vector3<f32> = Vector3::new(3.1415, 0.906, 2.308);
-    let mut focus_pos = Vector2::new(0.57, 0.44833332);
-    let mut aperture: f32 = 0.05;
+    let mut cam_eye: Vector3<f32> = Vector3::new(1.9259938, 1.0516713, 2.5938892);
+    let mut focus_pos = Vector2::new(0.43140244, 0.5055225);
+    let mut aperture: f32 = 0.2;
     let mut cam_direction = Vector3::new(
         vangle.cos() * hangle.sin(), 
         vangle.sin(), 

@@ -11,7 +11,7 @@ debug = []
 [lib]
 name = "peglrs"
 # crate-type = ["cdylib"]
-crate-type = ["dylib"]
+crate-type = ["rlib", "dylib"]
 
 [dependencies]
 gl = "0.11.0"
