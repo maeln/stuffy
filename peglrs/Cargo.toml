@@ -14,6 +14,6 @@ name = "peglrs"
 crate-type = ["rlib", "dylib"]
 
 [dependencies]
-gl = "0.11.0"
-cgmath = "0.17.0"
+gl = "0.14"
+cgmath = "0.18"
 gl_loader = "0.0.4"
